@@ -1,0 +1,63 @@
+"""Pydantic schemas for all models."""
+
+from pydantic import BaseModel
+from typing import Optional
+
+
+class PolicyBase(BaseModel):
+    title: str
+    level: Optional[str] = None
+    category: Optional[str] = None
+    scope: Optional[str] = None
+    benefit: Optional[str] = None
+    match_tags: list[str] = []
+
+
+class PolicyCreate(PolicyBase):
+    pass
+
+
+class PolicyResponse(PolicyBase):
+    id: int
+    model_config = {"from_attributes": True}
+
+
+class PropertyBase(BaseModel):
+    name: str
+    type: Optional[str] = None
+    area: Optional[str] = None
+    floor: Optional[str] = None
+    price: Optional[str] = None
+    location: Optional[str] = None
+    features: Optional[str] = None
+    tags: list[str] = []
+
+
+class PropertyCreate(PropertyBase):
+    pass
+
+
+class PropertyResponse(PropertyBase):
+    id: int
+    model_config = {"from_attributes": True}
+
+
+class ChainNodeResponse(BaseModel):
+    id: int
+    name: str
+    layer: str
+    description: Optional[str] = None
+    enterprises: list[str] = []
+    model_config = {"from_attributes": True}
+
+
+class ChainEdgeResponse(BaseModel):
+    id: int
+    source_node_id: int
+    target_node_id: int
+    model_config = {"from_attributes": True}
+
+
+class IndustryChainResponse(BaseModel):
+    nodes: list[ChainNodeResponse]
+    edges: list[ChainEdgeResponse]
