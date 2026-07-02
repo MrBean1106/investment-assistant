@@ -11,6 +11,24 @@ from routers.reports import router as reports_router
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+# Auto-seed on first run
+from database import SessionLocal
+from models import Enterprise
+
+def _auto_seed():
+    db = SessionLocal()
+    try:
+        count = db.query(Enterprise).count()
+        if count == 0:
+            from seed import seed
+            seed()
+    finally:
+        db.close()
+
+@app.on_event("startup")
+async def startup():
+    _auto_seed()
+
 app = FastAPI(
     title="产业招商助手 API",
     description="企业库、政策库、物业资源库、产业图谱管理",
