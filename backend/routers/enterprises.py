@@ -13,7 +13,7 @@ from schemas.enterprise import (
     EnterpriseListResponse,
 )
 
-router = APIRouter()
+router = APIRouter(redirect_slashes=False)
 
 
 @router.get("/", response_model=EnterpriseListResponse)
