@@ -2,7 +2,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, Base
+from database import engine, Base, SessionLocal
+from models import Enterprise
 from routers.enterprises import router as enterprises_router
 from routers.resources import policies_router, properties_router
 from routers.industry_chain import router as industry_chain_router
@@ -18,19 +19,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Allow all origins for production (安全起见，上线后可收紧)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        os.getenv("FRONTEND_URL", ""),
-        "https://investment-assistant-two.vercel.app",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
 app.include_router(enterprises_router, prefix="/api/enterprises", tags=["enterprises"])
 app.include_router(policies_router, prefix="/api/policies", tags=["policies"])
 app.include_router(properties_router, prefix="/api/properties", tags=["properties"])
@@ -41,31 +38,28 @@ app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 
 @app.get("/api/health")
 async def health():
-    from database import SessionLocal
-    from models import Enterprise
-    db = SessionLocal()
-    try:
-        count = db.query(Enterprise).count()
-        return {"status": "ok", "enterprises": count}
-    finally:
-        db.close()
+    return {"status": "ok"}
 
 
 @app.post("/api/seed")
 async def api_seed():
-    """Trigger database seeding (first deployment only)."""
-    from database import SessionLocal
-    from models import Enterprise
-    db = SessionLocal()
+    """Trigger database seeding."""
     try:
-        count = db.query(Enterprise).count()
+        count = db_query_count()
         if count > 0:
-            return {"message": f"数据库已有 {count} 家企业，无需灌入"}
+            return {"message": f"已有 {count} 家企业", "seeded": True}
         from seed import seed
         seed()
-        db = SessionLocal()  # refresh
-        count = db.query(Enterprise).count()
-        return {"message": "✅ 种子数据已灌入", "enterprises": count}
+        count = db_query_count()
+        return {"message": f"✅ 已灌入 {count} 家企业", "seeded": True}
+    except Exception as e:
+        return {"message": f"❌ 失败: {str(e)}", "seeded": False}
+
+
+def db_query_count():
+    db = SessionLocal()
+    try:
+        return db.query(Enterprise).count()
     finally:
         db.close()
 
