@@ -41,7 +41,7 @@ async def health():
     return {"status": "ok"}
 
 
-@app.post("/api/seed")
+@app.get("/api/seed")
 async def api_seed():
     """Trigger database seeding."""
     try:
