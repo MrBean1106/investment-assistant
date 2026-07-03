@@ -2,8 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, Base, SessionLocal
-from models import Enterprise
+from database import engine, Base
 from routers.enterprises import router as enterprises_router
 from routers.resources import policies_router, properties_router
 from routers.industry_chain import router as industry_chain_router
@@ -24,6 +23,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         os.getenv("FRONTEND_URL", ""),
+        "https://investment-assistant-two.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -39,26 +39,35 @@ app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 
 
-def _auto_seed():
-    """Seed database if empty (first deployment)."""
+@app.get("/api/health")
+async def health():
+    from database import SessionLocal
+    from models import Enterprise
     db = SessionLocal()
     try:
         count = db.query(Enterprise).count()
-        if count == 0:
-            from seed import seed
-            seed()
+        return {"status": "ok", "enterprises": count}
     finally:
         db.close()
 
 
-@app.on_event("startup")
-async def startup():
-    _auto_seed()
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "service": "investment-assistant"}
+@app.post("/api/seed")
+async def api_seed():
+    """Trigger database seeding (first deployment only)."""
+    from database import SessionLocal
+    from models import Enterprise
+    db = SessionLocal()
+    try:
+        count = db.query(Enterprise).count()
+        if count > 0:
+            return {"message": f"数据库已有 {count} 家企业，无需灌入"}
+        from seed import seed
+        seed()
+        db = SessionLocal()  # refresh
+        count = db.query(Enterprise).count()
+        return {"message": "✅ 种子数据已灌入", "enterprises": count}
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
