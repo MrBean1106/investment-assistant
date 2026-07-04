@@ -1,0 +1,5 @@
+name = "investment-assistant"
+compatibility_date = "2024-01-01"
+
+[[pages]]
+type = "static"
