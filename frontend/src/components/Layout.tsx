@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import AIChat from './AIChat';
 
 const NAV_ITEMS = [
   { to: '/', label: '工作台', icon: '▦' },
@@ -65,6 +66,9 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
+
+      {/* AI Chat Widget */}
+      <AIChat />
     </div>
   );
 }

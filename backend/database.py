@@ -9,11 +9,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# Use DATABASE_URL from environment, or fall back to SQLite for local dev
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./investment.db",  # SQLite fallback for easy local dev
-)
+# Force SQLite on Railway (Railway auto-sets a PostgreSQL DATABASE_URL but we don't have the driver)
+DATABASE_URL = "sqlite:///./investment.db"
 
 engine = create_engine(
     DATABASE_URL,
