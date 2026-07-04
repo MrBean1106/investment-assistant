@@ -28,7 +28,7 @@ export default function AIChat() {
     msgHistoryRef.current = history;
 
     try {
-      const BASE = import.meta.env.VITE_API_URL || '/api';
+      const BASE = 'https://investment-assistant-production-bb06.up.railway.app/api';
       const res = await fetch(`${BASE}/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
