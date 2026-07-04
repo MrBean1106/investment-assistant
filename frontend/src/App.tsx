@@ -8,6 +8,7 @@ import PolicyList from './pages/PolicyList';
 import PropertyList from './pages/PropertyList';
 import ReportList from './pages/ReportList';
 import Workflow from './pages/Workflow';
+import AIChat from './pages/AIChat';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="properties" element={<PropertyList />} />
           <Route path="reports" element={<ReportList />} />
           <Route path="workflow/:enterpriseId" element={<Workflow />} />
+          <Route path="ai" element={<AIChat />} />
         </Route>
       </Routes>
     </BrowserRouter>

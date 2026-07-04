@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/policies', label: '政策库', icon: '▥' },
   { to: '/properties', label: '物业资源', icon: '◫' },
   { to: '/reports', label: '报告中心', icon: '▣' },
+  { to: '/ai', label: 'AI 助手', icon: '✦' },
 ];
 
 export default function Layout() {
