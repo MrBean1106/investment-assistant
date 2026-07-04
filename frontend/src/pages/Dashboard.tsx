@@ -48,7 +48,7 @@ export default function Dashboard() {
         <div className="col-span-3 card p-6">
           <h3 className="font-semibold text-[14px] mb-5" style={{ letterSpacing: '-0.01em' }}>招商漏斗</h3>
           <div className="space-y-4">
-            {funnel.map((f, i) => (
+            {funnel.map((f) => (
               <div key={f.s} className="flex items-center gap-3">
                 <span className="text-[12.5px] font-medium w-16 text-right" style={{ color: 'var(--color-ink-secondary)' }}>{f.s}</span>
                 <div className="flex-1">
