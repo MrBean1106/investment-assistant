@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEnterprises } from '../hooks/useEnterprises';
 import { enterpriseApi } from '../api/enterprises';
@@ -12,8 +12,10 @@ const STATUS_MAP: Record<string, string> = {
 const EMPTY_FORM = { name: '', industry: '', segment: '', region: '', scale: '', status: '线索', contact: '', demand: '', invest_rating: '', tags: '' };
 
 export default function EnterpriseList() {
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get('status') || '';
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(initialStatus);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);

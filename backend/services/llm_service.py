@@ -10,8 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-BASE_URL = "https://api.deepseek.com/v1"
-MODEL = "deepseek-chat"
+BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
 _client = None
 

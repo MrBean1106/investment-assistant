@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Load backend/.env BEFORE importing routers — they read env vars at import time.
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,6 +15,7 @@ from routers.industry_chain import router as industry_chain_router
 from routers.ai import router as ai_router
 from routers.reports import router as reports_router
 from routers.upload import router as upload_router
+from routers.stats import router as stats_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -36,6 +42,7 @@ app.include_router(industry_chain_router, prefix="/api/industry-chain", tags=["i
 app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(upload_router, prefix="/api/files", tags=["files"])
+app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
 
 
 @app.get("/api/health")

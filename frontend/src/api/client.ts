@@ -1,4 +1,6 @@
-const BASE = 'https://investment-assistant-production-bb06.up.railway.app/api';
+import { API_BASE } from './config';
+
+const BASE = API_BASE;
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {

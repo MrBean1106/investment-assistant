@@ -86,3 +86,36 @@ export interface DashboardStats {
   monthlySigned: number;
   totalMatches: number;
 }
+
+// ── Stats API response (accurate aggregates) ──
+
+export interface FunnelStage {
+  stage: string;
+  count: number;
+}
+
+export interface RecentEnterprise {
+  id: number;
+  name: string;
+  industry: string | null;
+  status: string | null;
+  invest_rating: string | null;
+  region: string | null;
+  updated_at: string | null;
+}
+
+export interface StatsResponse {
+  total_enterprises: number;
+  by_status: Record<string, number>;
+  by_industry: Record<string, number>;
+  by_region: Record<string, number>;
+  by_rating: Record<string, number>;
+  by_scale: Record<string, number>;
+  funnel: FunnelStage[];
+  conversion_rate: number;
+  signed_or_landed: number;
+  total_policies: number;
+  total_properties: number;
+  total_reports: number;
+  recent_enterprises: RecentEnterprise[];
+}
