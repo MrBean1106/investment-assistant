@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEnterprise } from '../hooks/useEnterprises';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../api/client';
 import { enterpriseApi } from '../api/enterprises';
 import { useState } from 'react';
 import Modal from '../components/Modal';
@@ -12,6 +13,11 @@ export default function EnterpriseDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: ent, isLoading, error } = useEnterprise(Number(id));
+  const { data: chainMemberships } = useQuery({
+    queryKey: ['enterprise-chains', Number(id)],
+    queryFn: () => api.get<Array<{ node_id: number; node_name: string; node_layer: string; chain_id: number; chain_name: string }>>(`/industry-chain/enterprise/${id}/chains`),
+    enabled: !!id,
+  });
   const [tab, setTab] = useState<'profile' | 'match'>('profile');
 
   // Edit state
@@ -83,6 +89,18 @@ export default function EnterpriseDetail() {
           <div><span className="text-muted">状态：</span>{ent.status}</div>
         </div>
         {ent.demand && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">核心需求：</span><span className="text-[13px]">{ent.demand}</span></div>}
+        {(chainMemberships && chainMemberships.length > 0) && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <span className="text-muted text-[13px]">产业链归属：</span>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {chainMemberships.map(m => (
+                <span key={`${m.chain_id}-${m.node_id}`} className="tag tag-blue text-[11px]">
+                  {m.chain_name} · {m.node_name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4">

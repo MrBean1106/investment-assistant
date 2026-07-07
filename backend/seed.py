@@ -1,7 +1,7 @@
 """Seed database with mock data for 新能源汽车产业链."""
 
 from database import SessionLocal, init_db
-from models import Enterprise, Policy, Property, IndustryChainNode, IndustryChainEdge
+from models import Enterprise, Policy, Property, IndustryChain, IndustryChainNode, IndustryChainEdge, ChainNodeEnterprise
 
 
 def seed():
@@ -31,8 +31,24 @@ def seed():
         Enterprise(name="地平线机器人", industry="人工智能", segment="AI芯片", region="北京",
                    scale="中型", status="洽谈中", contact="刘总 133xxxx", demand="总部+算力中心",
                    invest_rating="A", tags=["AI芯片", "独角兽"]),
+        Enterprise(name="赣锋锂业", industry="新能源汽车", segment="锂矿", region="江西新余",
+                   scale="大型", status="线索", contact="李总 139xxxx", demand="扩产锂盐产能",
+                   invest_rating="A-", tags=["锂矿", "上市企业"]),
+        Enterprise(name="当升科技", industry="新能源汽车", segment="正极材料", region="北京",
+                   scale="大型", status="线索", contact="赵总 136xxxx", demand="三元材料扩产",
+                   invest_rating="B+", tags=["正极材料", "上市企业"]),
+        Enterprise(name="恩捷股份", industry="新能源汽车", segment="隔膜", region="上海",
+                   scale="大型", status="线索", contact="王总 137xxxx", demand="湿法隔膜产线",
+                   invest_rating="A", tags=["隔膜", "上市企业"]),
+        Enterprise(name="比亚迪", industry="新能源汽车", segment="整车制造", region="广东深圳",
+                   scale="大型", status="已落地", contact="王总 138xxxx", demand="第二工厂选址",
+                   invest_rating="A", tags=["整车", "上市企业", "链主"]),
+        Enterprise(name="特来电", industry="新能源汽车", segment="充电桩", region="山东青岛",
+                   scale="中型", status="线索", contact="陈总 135xxxx", demand="充电网络布局",
+                   invest_rating="B+", tags=["充电桩", "独角兽"]),
     ]
     db.add_all(enterprises)
+    db.flush()  # Get IDs
 
     # ── Policies ─────────────────────────────
     policies = [
@@ -71,31 +87,55 @@ def seed():
     ]
     db.add_all(properties)
 
-    # ── Industry Chain ──────────────────────
+    # ── Industry Chains ─────────────────────
+    chain = IndustryChain(name="新能源汽车产业链", description="涵盖上游矿产资源、中游三电系统、下游整车及充电设施")
+    db.add(chain)
+    db.flush()
+
     nodes_data = [
-        ("上游-矿产资源", "上游", "锂/钴/镍矿采选", ["赣锋锂业", "华友钴业"]),
-        ("上游-正极材料", "上游", "三元/磷酸铁锂", ["当升科技", "德方纳米"]),
-        ("上游-负极/隔膜/电解液", "上游", "石墨负极、湿法隔膜", ["贝特瑞", "恩捷股份"]),
-        ("中游-动力电池", "中游", "电芯/模组/PACK", ["宁德时代", "弗迪电池", "中创新航"]),
-        ("中游-电机电控", "中游", "驱动电机/电控系统", ["汇川技术", "卧龙电驱"]),
-        ("中游-智能网联", "中游", "自动驾驶/座舱/车联网", ["均胜电子", "德赛西威"]),
-        ("下游-整车制造", "下游", "乘用车/商用车", ["比亚迪", "蔚来", "理想"]),
-        ("下游-充电设施", "下游", "充电桩/换电站", ["特来电", "星星充电"]),
+        ("上游-矿产资源", "上游", "锂/钴/镍矿采选"),
+        ("上游-正极材料", "上游", "三元/磷酸铁锂材料"),
+        ("上游-负极/隔膜/电解液", "上游", "石墨负极、湿法隔膜、电解液"),
+        ("中游-动力电池", "中游", "电芯/模组/PACK"),
+        ("中游-电机电控", "中游", "驱动电机/电控系统"),
+        ("中游-智能网联", "中游", "自动驾驶/座舱/车联网"),
+        ("下游-整车制造", "下游", "乘用车/商用车"),
+        ("下游-充电设施", "下游", "充电桩/换电站"),
     ]
     nodes = []
-    for name, layer, desc, ents in nodes_data:
-        node = IndustryChainNode(name=name, layer=layer, description=desc, enterprises=ents)
+    for name, layer, desc in nodes_data:
+        node = IndustryChainNode(chain_id=chain.id, name=name, layer=layer, description=desc)
         db.add(node)
         nodes.append(node)
     db.flush()
 
-    edges_pairs = [(0, 1), (1, 2), (2, 3), (1, 3), (3, 6), (4, 6), (5, 6), (6, 7)]
+    # Edges: upstream→midstream→downstream
+    edges_pairs = [(0,1), (1,2), (2,3), (1,3), (3,6), (4,6), (5,6), (6,7)]
     for src, tgt in edges_pairs:
         db.add(IndustryChainEdge(source_node_id=nodes[src].id, target_node_id=nodes[tgt].id))
 
+    # Link enterprises to chain nodes
+    # Map enterprise names → node index
+    ent_map = {e.name: e for e in enterprises}
+    node_ent_links = {
+        0: ["赣锋锂业"],                # 上游-矿产资源
+        1: ["当升科技"],                # 上游-正极材料
+        2: ["恩捷股份"],                # 上游-负极/隔膜/电解液
+        3: ["宁德时代新能源科技"],       # 中游-动力电池
+        4: ["汇川技术"],                # 中游-电机电控
+        5: ["均胜电子"],                # 中游-智能网联
+        6: ["比亚迪"],                  # 下游-整车制造
+        7: ["特来电"],                  # 下游-充电设施
+    }
+    for node_idx, ent_names in node_ent_links.items():
+        for name in ent_names:
+            ent = ent_map.get(name)
+            if ent:
+                db.add(ChainNodeEnterprise(node_id=nodes[node_idx].id, enterprise_id=ent.id))
+
     db.commit()
     db.close()
-    print("✅ Seed data loaded: 6 enterprises, 5 policies, 4 properties, 8 chain nodes")
+    print("✅ Seed data loaded: 11 enterprises, 5 policies, 4 properties, 1 chain (8 nodes)")
 
 
 if __name__ == "__main__":

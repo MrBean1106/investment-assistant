@@ -1,5 +1,4 @@
 """Pydantic schemas for all models."""
-
 from pydantic import BaseModel
 from typing import Optional
 
@@ -42,12 +41,30 @@ class PropertyResponse(PropertyBase):
     model_config = {"from_attributes": True}
 
 
+# ── Industry Chain schemas ──
+
+class ChainResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class LinkedEnterprise(BaseModel):
+    id: int
+    name: str
+    industry: Optional[str] = None
+    segment: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
 class ChainNodeResponse(BaseModel):
     id: int
+    chain_id: int
     name: str
     layer: str
     description: Optional[str] = None
-    enterprises: list[str] = []
+    enterprises: list[LinkedEnterprise] = []
     model_config = {"from_attributes": True}
 
 
@@ -59,5 +76,6 @@ class ChainEdgeResponse(BaseModel):
 
 
 class IndustryChainResponse(BaseModel):
+    chain: ChainResponse
     nodes: list[ChainNodeResponse]
     edges: list[ChainEdgeResponse]

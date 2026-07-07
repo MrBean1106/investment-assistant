@@ -44,12 +44,28 @@ export interface Property {
   tags: string[];
 }
 
+// ── Industry Chain types ──
+
+export interface Chain {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface LinkedEnterprise {
+  id: number;
+  name: string;
+  industry: string | null;
+  segment: string | null;
+}
+
 export interface ChainNode {
   id: number;
+  chain_id: number;
   name: string;
   layer: string;
   description: string | null;
-  enterprises: string[];
+  enterprises: LinkedEnterprise[];
 }
 
 export interface ChainEdge {
@@ -59,6 +75,7 @@ export interface ChainEdge {
 }
 
 export interface IndustryChainResponse {
+  chain: Chain;
   nodes: ChainNode[];
   edges: ChainEdge[];
 }
