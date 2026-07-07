@@ -16,6 +16,15 @@ class PolicyCreate(PolicyBase):
     pass
 
 
+class PolicyUpdate(BaseModel):
+    title: Optional[str] = None
+    level: Optional[str] = None
+    category: Optional[str] = None
+    scope: Optional[str] = None
+    benefit: Optional[str] = None
+    match_tags: Optional[list[str]] = None
+
+
 class PolicyResponse(PolicyBase):
     id: int
     model_config = {"from_attributes": True}
@@ -34,6 +43,17 @@ class PropertyBase(BaseModel):
 
 class PropertyCreate(PropertyBase):
     pass
+
+
+class PropertyUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    area: Optional[str] = None
+    floor: Optional[str] = None
+    price: Optional[str] = None
+    location: Optional[str] = None
+    features: Optional[str] = None
+    tags: Optional[list[str]] = None
 
 
 class PropertyResponse(PropertyBase):

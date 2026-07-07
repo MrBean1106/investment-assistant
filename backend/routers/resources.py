@@ -6,7 +6,7 @@ from typing import Optional
 
 from database import get_db
 from models import Policy, Property
-from schemas import PolicyCreate, PolicyResponse, PropertyCreate, PropertyResponse
+from schemas import PolicyCreate, PolicyUpdate, PolicyResponse, PropertyCreate, PropertyUpdate, PropertyResponse
 
 policies_router = APIRouter()
 properties_router = APIRouter()
@@ -34,7 +34,7 @@ def create_policy(data: PolicyCreate, db: Session = Depends(get_db)):
 
 
 @policies_router.put("/{policy_id}", response_model=PolicyResponse)
-def update_policy(policy_id: int, data: PolicyCreate, db: Session = Depends(get_db)):
+def update_policy(policy_id: int, data: PolicyUpdate, db: Session = Depends(get_db)):
     policy = db.query(Policy).filter(Policy.id == policy_id).first()
     if not policy:
         raise HTTPException(status_code=404, detail="Not found")
@@ -76,7 +76,7 @@ def create_property(data: PropertyCreate, db: Session = Depends(get_db)):
 
 
 @properties_router.put("/{property_id}", response_model=PropertyResponse)
-def update_property(property_id: int, data: PropertyCreate, db: Session = Depends(get_db)):
+def update_property(property_id: int, data: PropertyUpdate, db: Session = Depends(get_db)):
     prop = db.query(Property).filter(Property.id == property_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Not found")

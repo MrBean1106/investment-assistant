@@ -3,7 +3,8 @@ import { useEnterprise } from '../hooks/useEnterprises';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { enterpriseApi } from '../api/enterprises';
-import { useState } from 'react';
+import { aiApi, type MatchResult } from '../api/ai';
+import { useState, useCallback } from 'react';
 import Modal from '../components/Modal';
 
 const STATUS_MAP: Record<string, string> = { '线索': 'tag-orange', '洽谈中': 'tag-blue', '已签约': 'tag-green', '已落地': 'tag-green' };
@@ -19,6 +20,40 @@ export default function EnterpriseDetail() {
     enabled: !!id,
   });
   const [tab, setTab] = useState<'profile' | 'match'>('profile');
+
+  // Match state
+  const [policyMatches, setPolicyMatches] = useState<MatchResult[] | null>(null);
+  const [propertyMatches, setPropertyMatches] = useState<MatchResult[] | null>(null);
+  const [matchLoading, setMatchLoading] = useState<'policies' | 'properties' | null>(null);
+  const [matchError, setMatchError] = useState<string | null>(null);
+
+  const runPolicyMatch = useCallback(async () => {
+    if (!ent) return;
+    setMatchLoading('policies');
+    setMatchError(null);
+    try {
+      const res = await aiApi.matchPolicies(ent.id);
+      setPolicyMatches(res.matches?.matches || []);
+    } catch (e) {
+      setMatchError((e as Error).message);
+    } finally {
+      setMatchLoading(null);
+    }
+  }, [ent]);
+
+  const runPropertyMatch = useCallback(async () => {
+    if (!ent) return;
+    setMatchLoading('properties');
+    setMatchError(null);
+    try {
+      const res = await aiApi.matchProperties(ent.id);
+      setPropertyMatches(res.matches?.matches || []);
+    } catch (e) {
+      setMatchError((e as Error).message);
+    } finally {
+      setMatchLoading(null);
+    }
+  }, [ent]);
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -132,9 +167,86 @@ export default function EnterpriseDetail() {
       )}
 
       {tab === 'match' && (
-        <div className="card p-5 text-center py-8 text-muted">
-          <p className="text-2xl mb-2">🔍</p><p>匹配引擎在工作流中启动</p>
-          <Link to={`/workflow/${ent.id}`} className="btn btn-primary mt-4 inline-flex">🚀 开始匹配</Link>
+        <div className="space-y-4">
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <button
+              className={`btn text-[13px] ${matchLoading === 'policies' ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={runPolicyMatch}
+              disabled={matchLoading !== null}
+            >
+              {matchLoading === 'policies' ? '⏳ 匹配中...' : '📜 匹配政策'}
+            </button>
+            <button
+              className={`btn text-[13px] ${matchLoading === 'properties' ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={runPropertyMatch}
+              disabled={matchLoading !== null}
+            >
+              {matchLoading === 'properties' ? '⏳ 匹配中...' : '🏗️ 匹配物业'}
+            </button>
+          </div>
+
+          {/* Error */}
+          {matchError && (
+            <div className="card p-4 text-red-500 text-[13px]">❌ 匹配失败：{matchError}</div>
+          )}
+
+          {/* Policy matches */}
+          {policyMatches && (
+            <div className="card p-4">
+              <h3 className="font-semibold text-[14px] mb-3">📜 政策匹配结果（{policyMatches.length} 项）</h3>
+              {policyMatches.length === 0 ? (
+                <p className="text-muted text-[13px]">暂无匹配政策</p>
+              ) : (
+                <div className="space-y-3">
+                  {policyMatches.map((m, i) => (
+                    <div key={i} className="border border-border rounded-md p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-[13px]">{m.resource_name}</span>
+                        <span className={`tag ${m.match_score >= 80 ? 'tag-green' : m.match_score >= 60 ? 'tag-blue' : 'tag-gray'}`}>
+                          匹配度 {m.match_score}%
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-muted">{m.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Property matches */}
+          {propertyMatches && (
+            <div className="card p-4">
+              <h3 className="font-semibold text-[14px] mb-3">🏗️ 物业匹配结果（{propertyMatches.length} 项）</h3>
+              {propertyMatches.length === 0 ? (
+                <p className="text-muted text-[13px]">暂无匹配物业</p>
+              ) : (
+                <div className="space-y-3">
+                  {propertyMatches.map((m, i) => (
+                    <div key={i} className="border border-border rounded-md p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-[13px]">{m.resource_name}</span>
+                        <span className={`tag ${m.match_score >= 80 ? 'tag-green' : m.match_score >= 60 ? 'tag-blue' : 'tag-gray'}`}>
+                          匹配度 {m.match_score}%
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-muted">{m.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!policyMatches && !propertyMatches && !matchLoading && !matchError && (
+            <div className="card p-5 text-center py-8 text-muted">
+              <p className="text-2xl mb-2">🔍</p>
+              <p>点击上方按钮，开始匹配政策与物业资源</p>
+              <p className="text-[12px] mt-1">匹配引擎基于企业标签、行业和需求自动推荐</p>
+            </div>
+          )}
         </div>
       )}
 

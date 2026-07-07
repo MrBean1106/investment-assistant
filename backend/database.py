@@ -1,16 +1,17 @@
 """
 Database configuration for 产业招商助手.
 
-Uses PostgreSQL with SQLAlchemy ORM.
-For MVP / local dev, can fall back to SQLite by changing DATABASE_URL.
+Uses SQLAlchemy ORM with configurable database backend.
+Default: SQLite for local dev / MVP; can be overridden via DATABASE_URL env var.
 """
 
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# Force SQLite on Railway (Railway auto-sets a PostgreSQL DATABASE_URL but we don't have the driver)
-DATABASE_URL = "sqlite:///./investment.db"
+# Read DATABASE_URL from environment, fallback to SQLite
+# Supports: sqlite, postgresql+psycopg2, postgresql+pg8000, etc.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./investment.db")
 
 engine = create_engine(
     DATABASE_URL,

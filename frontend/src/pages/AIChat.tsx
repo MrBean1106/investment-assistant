@@ -1,12 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { API_BASE } from '../api/config';
-
-interface ToolEvent {
-  name: string;
-  args?: Record<string, unknown>;
-  result?: string;
-  status: 'calling' | 'done' | 'error';
-}
+import { TOOL_LABELS, generateId, parseSSEStream, summarizeToolResult } from '../utils/aiChat';
+import ToolCard from '../components/ToolCard';
+import type { ToolEvent } from '../components/ToolCard';
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -21,84 +17,6 @@ const WELCOME: Message = {
   role: 'assistant',
   content: '你好！我是产业招商AI助手。我可以帮你：\n\n🔍 搜索企业、查看详情\n📊 分析企业价值、生成画像\n📜 匹配政策资源\n🏗️ 匹配物业资源\n📄 生成研判报告\n📎 上传文件（文本/图片）分析\n\n直接告诉我你想做什么！',
 };
-
-const TOOL_LABELS: Record<string, string> = {
-  search_enterprises: '搜索企业',
-  get_enterprise_detail: '查看企业详情',
-  list_policies: '查询政策库',
-  list_properties: '查询物业资源',
-  get_industry_chain: '查看产业图谱',
-  get_dashboard_stats: '获取工作台统计',
-  generate_enterprise_profile: '生成企业画像',
-  match_policies_for_enterprise: '匹配政策',
-  match_properties_for_enterprise: '匹配物业',
-  generate_report_for_enterprise: '生成研判报告',
-  create_enterprise: '新增企业',
-};
-
-function summarizeToolResult(name: string, raw: string): string {
-  let data: unknown;
-  try { data = JSON.parse(raw); } catch { return raw.slice(0, 160) + (raw.length > 160 ? '…' : ''); }
-
-  if (Array.isArray(data)) {
-    if (data.length === 0) return '返回 0 项（空）';
-    const sample = data.slice(0, 3).map((d) => {
-      const obj = d as Record<string, unknown>;
-      return obj.name || obj.title || `#${obj.id ?? '?'}`;
-    });
-    return `返回 ${data.length} 项：${sample.join('、')}${data.length > 3 ? ' 等' : ''}`;
-  }
-  if (data && typeof data === 'object') {
-    const obj = data as Record<string, unknown>;
-    if (obj.error) return `❌ ${obj.error}`;
-    if (name === 'get_dashboard_stats') {
-      return `企业 ${obj.total_enterprises} · 政策 ${obj.total_policies} · 物业 ${obj.total_properties}`;
-    }
-    if (obj.success && (obj as Record<string, unknown>).enterprise) {
-      const e = (obj as Record<string, { name?: string }>).enterprise;
-      return `✅ 已创建：${e.name}`;
-    }
-    if (obj.report_id) return `✅ 报告已生成（#${obj.report_id}）`;
-    if (obj.matches && Array.isArray((obj as { matches?: unknown[] }).matches)) {
-      return `匹配 ${((obj as { matches: unknown[] }).matches).length} 项资源`;
-    }
-    // generic: show first few keys
-    const keys = Object.keys(obj).slice(0, 4);
-    return keys.map((k) => `${k}: ${typeof obj[k] === 'object' ? '…' : obj[k]}`).join('  ·  ');
-  }
-  return String(data).slice(0, 160);
-}
-
-function ToolCard({ tool }: { tool: ToolEvent }) {
-  const [expanded, setExpanded] = useState(false);
-  const label = TOOL_LABELS[tool.name] || tool.name;
-  return (
-    <div className="mt-2 rounded-lg border text-[12px] overflow-hidden" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-      <button
-        className="w-full flex items-center justify-between px-3 py-2 text-left"
-        onClick={() => setExpanded((v) => !v)}
-        style={{ color: 'var(--color-ink-secondary)' }}
-      >
-        <span className="flex items-center gap-1.5">
-          {tool.status === 'calling' ? <span className="animate-pulse">🔧</span> : tool.status === 'error' ? '⚠️' : '✅'}
-          <span className="font-semibold" style={{ color: 'var(--color-ink)' }}>{label}</span>
-          {tool.status === 'calling' && <span style={{ color: 'var(--color-muted)' }}>执行中…</span>}
-        </span>
-        <span style={{ color: 'var(--color-muted)' }}>{expanded ? '▾' : '▸'}</span>
-      </button>
-      {tool.status !== 'calling' && (
-        <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--color-border-light)', color: 'var(--color-ink-secondary)' }}>
-          {tool.result ? summarizeToolResult(tool.name, tool.result) : '（无返回）'}
-        </div>
-      )}
-      {expanded && tool.result && (
-        <pre className="px-3 py-2 text-[11px] overflow-x-auto whitespace-pre-wrap break-all" style={{ background: '#0f1729', color: '#cbd5e1', borderTop: '1px solid var(--color-border-light)' }}>
-          {(() => { try { return JSON.stringify(JSON.parse(tool.result), null, 2); } catch { return tool.result; } })()}
-        </pre>
-      )}
-    </div>
-  );
-}
 
 export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -194,38 +112,31 @@ export default function AIChat() {
       let assistantContent = '';
       const assistantTools: ToolEvent[] = [];
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-      const decoder = new TextDecoder();
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const d = line.slice(6);
-          if (d === '[DONE]') continue;
-          try {
-            const event = JSON.parse(d);
-            if (event.type === 'text') {
-              assistantContent += event.content;
-              updateLastAssistant(m => ({ ...m, content: assistantContent }));
-            } else if (event.type === 'tool_call') {
-              assistantTools.push({ name: event.name, args: event.args, status: 'calling' });
-              updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
-            } else if (event.type === 'tool_result') {
-              const idx = assistantTools.findIndex(t => t.name === event.name && t.status === 'calling');
-              if (idx >= 0) {
-                assistantTools[idx] = { ...assistantTools[idx], result: event.content, status: 'done' };
-              } else {
-                assistantTools.push({ name: event.name, result: event.content, status: 'done' });
-              }
-              updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
-            } else if (event.type === 'error') {
-              assistantContent += `\n\n❌ ${event.content}`;
-              updateLastAssistant(m => ({ ...m, content: assistantContent }));
-            }
-          } catch { /* ignore malformed SSE line */ }
-        }
-      }
+      await parseSSEStream(reader, {
+        onText: (content) => {
+          assistantContent += content;
+          updateLastAssistant(m => ({ ...m, content: assistantContent }));
+        },
+        onToolCall: (name, args) => {
+          assistantTools.push({ name, args, status: 'calling' });
+          updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
+        },
+        onToolResult: (name, content) => {
+          const idx = assistantTools.findIndex(t => t.name === name && t.status === 'calling');
+          if (idx >= 0) {
+            assistantTools[idx] = { ...assistantTools[idx], result: content, status: 'done' };
+          } else {
+            assistantTools.push({ name, result: content, status: 'done' });
+          }
+          updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
+        },
+        onError: (content) => {
+          assistantContent += `\n\n❌ ${content}`;
+          updateLastAssistant(m => ({ ...m, content: assistantContent }));
+        },
+      });
+
       msgHistoryRef.current = [...history, { role: 'assistant', content: assistantContent }];
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', content: `❌ 连接失败：${(e as Error).message}\n\n请确认后端服务已启动（localhost:8001）且已配置 DEEPSEEK_API_KEY。` }]);

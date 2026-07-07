@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import { API_BASE } from '../api/config';
+import { TOOL_LABELS, generateId, parseSSEStream } from '../utils/aiChat';
 
 interface Message {
   id: string;
@@ -9,25 +9,6 @@ interface Message {
   toolCall?: { name: string; args: Record<string, unknown> };
   toolResult?: string;
   isStreaming?: boolean;
-}
-
-// Tool name translations for display
-const TOOL_LABELS: Record<string, string> = {
-  search_enterprises: '搜索企业',
-  get_enterprise_detail: '查看企业详情',
-  list_policies: '查看政策列表',
-  list_properties: '查看物业资源',
-  get_industry_chain: '查看产业图谱',
-  get_dashboard_stats: '查看数据统计',
-  generate_enterprise_profile: '生成企业画像',
-  match_policies_for_enterprise: '匹配政策',
-  match_properties_for_enterprise: '匹配物业',
-  generate_report_for_enterprise: '生成研判报告',
-  create_enterprise: '新增企业',
-};
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export default function AIChat() {
@@ -61,10 +42,9 @@ export default function AIChat() {
     setLoading(true);
     abortRef.current = new AbortController();
 
-    // Build conversation history (only user + assistant messages)
+    // Build conversation history
     const history: { role: string; content: string }[] = [];
     setMessages((prev) => {
-      // Rebuild from current state (excluding the new ones we just added)
       for (const m of prev) {
         if (m.role === 'user') history.push({ role: 'user', content: m.content });
         else if (m.role === 'assistant' && m.content && !m.isStreaming)
@@ -72,7 +52,6 @@ export default function AIChat() {
       }
       return prev;
     });
-    // Add the current user message
     history.push({ role: 'user', content: text });
 
     try {
@@ -91,67 +70,46 @@ export default function AIChat() {
       const reader = res.body?.getReader();
       if (!reader) throw new Error('No response stream');
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') continue;
-
-          try {
-            const event = JSON.parse(data);
-
-            if (event.type === 'text') {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id
-                    ? { ...m, content: m.content + event.content }
-                    : m
-                )
-              );
-            } else if (event.type === 'tool_call') {
-              // Add a tool-call indicator message
-              const label = TOOL_LABELS[event.name] || event.name;
-              const toolMsg: Message = {
-                id: generateId(),
-                role: 'tool',
-                content: `🔧 ${label}...`,
-                toolCall: { name: event.name, args: event.args },
-              };
-              setMessages((prev) => [...prev, toolMsg]);
-            } else if (event.type === 'tool_result') {
-              // Update the last tool message with result
-              const label = TOOL_LABELS[event.name] || event.name;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.toolCall?.name === event.name && !m.toolResult
-                    ? { ...m, content: `✅ ${label} 完成`, toolResult: event.content }
-                    : m
-                )
-              );
-            } else if (event.type === 'error') {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id
-                    ? { ...m, content: event.content, isStreaming: false }
-                    : m
-                )
-              );
-            }
-          } catch {
-            // skip parse errors
-          }
-        }
-      }
+      await parseSSEStream(reader, {
+        onText: (content) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsg.id
+                ? { ...m, content: m.content + content }
+                : m
+            )
+          );
+        },
+        onToolCall: (name, args) => {
+          const label = TOOL_LABELS[name] || name;
+          const toolMsg: Message = {
+            id: generateId(),
+            role: 'tool',
+            content: `🔧 ${label}...`,
+            toolCall: { name, args },
+          };
+          setMessages((prev) => [...prev, toolMsg]);
+        },
+        onToolResult: (name, content) => {
+          const label = TOOL_LABELS[name] || name;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.toolCall?.name === name && !m.toolResult
+                ? { ...m, content: `✅ ${label} 完成`, toolResult: content }
+                : m
+            )
+          );
+        },
+        onError: (content) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsg.id
+                ? { ...m, content, isStreaming: false }
+                : m
+            )
+          );
+        },
+      });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
       setMessages((prev) =>

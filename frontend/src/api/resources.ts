@@ -7,6 +7,7 @@ export const policyApi = {
     return api.get<Policy[]>(`/policies/${qs}`);
   },
   create: (data: Partial<Policy>) => api.post<Policy>('/policies/', data),
+  update: (id: number, data: Partial<Policy>) => api.put<Policy>(`/policies/${id}`, data),
   delete: (id: number) => api.del<void>(`/policies/${id}`),
 };
 
@@ -16,6 +17,7 @@ export const propertyApi = {
     return api.get<Property[]>(`/properties/${qs}`);
   },
   create: (data: Partial<Property>) => api.post<Property>('/properties/', data),
+  update: (id: number, data: Partial<Property>) => api.put<Property>(`/properties/${id}`, data),
   delete: (id: number) => api.del<void>(`/properties/${id}`),
 };
 
