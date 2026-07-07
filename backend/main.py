@@ -9,6 +9,7 @@ from routers.resources import policies_router, properties_router
 from routers.industry_chain import router as industry_chain_router
 from routers.ai import router as ai_router
 from routers.reports import router as reports_router
+from routers.upload import router as upload_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -34,6 +35,7 @@ app.include_router(properties_router, prefix="/api/properties", tags=["propertie
 app.include_router(industry_chain_router, prefix="/api/industry-chain", tags=["industry-chain"])
 app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
+app.include_router(upload_router, prefix="/api/files", tags=["files"])
 
 
 @app.get("/api/health")
