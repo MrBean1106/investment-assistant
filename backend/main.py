@@ -16,6 +16,7 @@ from routers.ai import router as ai_router
 from routers.reports import router as reports_router
 from routers.upload import router as upload_router
 from routers.stats import router as stats_router
+from routers.documents import router as documents_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -42,12 +43,31 @@ app.include_router(industry_chain_router, prefix="/api/industry-chain", tags=["i
 app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
 app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(upload_router, prefix="/api/files", tags=["files"])
+app.include_router(documents_router, prefix="/api/files", tags=["files"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.on_event("startup")
+def ensure_database_ready():
+    """Auto-build the database from the program's seed data on a fresh deploy.
+
+    investment.db is gitignored, so a fresh clone / Railway deploy starts empty.
+    This guarantees tables exist and the seed data is present automatically.
+    """
+    try:
+        from models import Enterprise
+        if db_query_count() == 0:
+            from seed import seed
+            seed()
+            print(f"✅ 自动建库完成，已灌入 {db_query_count()} 家企业")
+    except Exception as e:
+        # Never block startup if seeding fails; the API stays up.
+        print(f"⚠️ 自动建库/灌库失败（已跳过）: {e}")
 
 
 @app.get("/api/seed")
