@@ -13,6 +13,9 @@ backend/venv/
 *.db
 *.sqlite3
 
+# Runtime uploads (user OCR/doc files)
+backend/uploads/
+
 # IDE
 .vscode/
 .idea/

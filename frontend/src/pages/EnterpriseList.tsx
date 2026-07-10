@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEnterprises } from '../hooks/useEnterprises';
 import { enterpriseApi } from '../api/enterprises';
+import { API_BASE } from '../api/config';
 import Modal from '../components/Modal';
 
 const STATUS_OPTIONS = ['全部', '线索', '洽谈中', '已签约', '已落地'];
@@ -21,6 +22,24 @@ export default function EnterpriseList() {
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = async (files: FileList | null) => {
+    if (!files || !files[0]) return;
+    const fd = new FormData();
+    fd.append('file', files[0]);
+    try {
+      const res = await fetch(`${API_BASE}/enterprises/import`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const j = await res.json();
+      alert(`已导入 ${j.created} 家企业`);
+      qc.invalidateQueries({ queryKey: ['enterprises'] });
+    } catch (e) {
+      alert('导入失败: ' + (e as Error).message);
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   const { data, isLoading, error } = useEnterprises({ search: search || undefined, status: status || undefined });
 
@@ -47,7 +66,12 @@ export default function EnterpriseList() {
           <h1 className="page-title">企业库</h1>
           <p className="page-subtitle">{data ? `${data.total} 家企业` : '加载中...'}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>＋ 新增企业</button>
+        <div className="flex gap-2">
+          <a href={`${API_BASE}/enterprises/export`} download className="btn btn-secondary">⬇ 导出</a>
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>⬆ 导入</button>
+          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>＋ 新增企业</button>
+        </div>
+        <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImport(e.target.files)} />
       </div>
 
       <div className="flex gap-3 mb-5">

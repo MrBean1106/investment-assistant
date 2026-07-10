@@ -1,6 +1,8 @@
 """Enterprise CRUD API router."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
+from fastapi.responses import Response
+from services.excel_io import rows_to_xlsx, xlsx_to_rows, XLSX_MEDIA
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -40,6 +42,49 @@ def list_enterprises(
         items=[EnterpriseResponse.model_validate(e) for e in items],
         total=total,
     )
+
+
+ENT_COLUMNS = [
+    ("name", "企业名称"), ("industry", "所属行业"), ("segment", "细分领域"),
+    ("region", "所在地区"), ("scale", "企业规模"), ("status", "招商状态"),
+    ("contact", "联系人"), ("demand", "核心需求"), ("invest_rating", "投资评级"),
+    ("tags", "标签(逗号分隔)"),
+]
+
+
+@router.get("/export")
+def export_enterprises(db: Session = Depends(get_db)):
+    ents = db.query(Enterprise).order_by(Enterprise.id).all()
+    rows = []
+    for e in ents:
+        d = {c[0]: (getattr(e, c[0]) or "") for c in ENT_COLUMNS if c[0] != "tags"}
+        tags = e.tags if isinstance(e.tags, list) else []
+        d["tags"] = ",".join(tags)
+        rows.append(d)
+    buf = rows_to_xlsx(rows, ENT_COLUMNS)
+    return Response(
+        content=buf.getvalue(),
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": "attachment; filename=enterprises.xlsx"},
+    )
+
+
+@router.post("/import")
+async def import_enterprises(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    rows = xlsx_to_rows(content, ENT_COLUMNS)
+    created = 0
+    for r in rows:
+        tags = r.get("tags")
+        if isinstance(tags, str):
+            r["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+        r = {k: v for k, v in r.items() if v not in (None, "")}
+        if not r.get("name"):
+            continue
+        db.add(Enterprise(**r))
+        created += 1
+    db.commit()
+    return {"created": created}
 
 
 @router.get("/{enterprise_id}", response_model=EnterpriseResponse)

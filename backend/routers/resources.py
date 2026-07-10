@@ -1,6 +1,8 @@
 """Policies & Properties CRUD API router."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
+from fastapi.responses import Response
+from services.excel_io import rows_to_xlsx, xlsx_to_rows, XLSX_MEDIA
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -22,6 +24,43 @@ def list_policies(
     if search:
         query = query.filter(Policy.title.ilike(f"%{search}%"))
     return [PolicyResponse.model_validate(p) for p in query.all()]
+
+
+POL_COLUMNS = [
+    ("title", "政策标题"), ("level", "级别"), ("category", "类别"),
+    ("scope", "适用范围"), ("benefit", "优惠内容"), ("match_tags", "标签(逗号分隔)"),
+]
+
+
+@policies_router.get("/export")
+def export_policies(db: Session = Depends(get_db)):
+    rows = []
+    for p in db.query(Policy).order_by(Policy.id).all():
+        d = {c[0]: (getattr(p, c[0]) or "") for c in POL_COLUMNS if c[0] != "match_tags"}
+        tags = p.match_tags if isinstance(p.match_tags, list) else []
+        d["match_tags"] = ",".join(tags)
+        rows.append(d)
+    buf = rows_to_xlsx(rows, POL_COLUMNS)
+    return Response(content=buf.getvalue(), media_type=XLSX_MEDIA,
+                    headers={"Content-Disposition": "attachment; filename=policies.xlsx"})
+
+
+@policies_router.post("/import")
+async def import_policies(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    rows = xlsx_to_rows(content, POL_COLUMNS)
+    created = 0
+    for r in rows:
+        tags = r.get("match_tags")
+        if isinstance(tags, str):
+            r["match_tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+        r = {k: v for k, v in r.items() if v not in (None, "")}
+        if not r.get("title"):
+            continue
+        db.add(Policy(**r))
+        created += 1
+    db.commit()
+    return {"created": created}
 
 
 @policies_router.post("/", response_model=PolicyResponse, status_code=201)
@@ -64,6 +103,43 @@ def list_properties(
     if search:
         query = query.filter(Property.name.ilike(f"%{search}%"))
     return [PropertyResponse.model_validate(p) for p in query.all()]
+
+
+PROP_COLUMNS = [
+    ("name", "物业名称"), ("type", "类型"), ("area", "面积"), ("floor", "楼层"),
+    ("price", "单价"), ("location", "位置"), ("features", "特色"), ("tags", "标签(逗号分隔)"),
+]
+
+
+@properties_router.get("/export")
+def export_properties(db: Session = Depends(get_db)):
+    rows = []
+    for p in db.query(Property).order_by(Property.id).all():
+        d = {c[0]: (getattr(p, c[0]) or "") for c in PROP_COLUMNS if c[0] != "tags"}
+        tags = p.tags if isinstance(p.tags, list) else []
+        d["tags"] = ",".join(tags)
+        rows.append(d)
+    buf = rows_to_xlsx(rows, PROP_COLUMNS)
+    return Response(content=buf.getvalue(), media_type=XLSX_MEDIA,
+                    headers={"Content-Disposition": "attachment; filename=properties.xlsx"})
+
+
+@properties_router.post("/import")
+async def import_properties(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    rows = xlsx_to_rows(content, PROP_COLUMNS)
+    created = 0
+    for r in rows:
+        tags = r.get("tags")
+        if isinstance(tags, str):
+            r["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+        r = {k: v for k, v in r.items() if v not in (None, "")}
+        if not r.get("name"):
+            continue
+        db.add(Property(**r))
+        created += 1
+    db.commit()
+    return {"created": created}
 
 
 @properties_router.post("/", response_model=PropertyResponse, status_code=201)

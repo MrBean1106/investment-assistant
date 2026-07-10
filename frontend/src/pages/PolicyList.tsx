@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePolicies } from '../hooks/useResources';
 import { policyApi } from '../api/resources';
+import { API_BASE } from '../api/config';
 import Modal from '../components/Modal';
 import type { Policy } from '../types';
 
@@ -20,6 +21,25 @@ export default function PolicyList() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImport = async (files: FileList | null) => {
+    if (!files || !files[0]) return;
+    const fd = new FormData();
+    fd.append('file', files[0]);
+    try {
+      const res = await fetch(`${API_BASE}/policies/import`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const j = await res.json();
+      alert(`已导入 ${j.created} 项政策`);
+      qc.invalidateQueries({ queryKey: ['policies'] });
+    } catch (e) {
+      alert('导入失败: ' + (e as Error).message);
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
   const { data, isLoading, error } = usePolicies(search || undefined);
 
   const handleCreate = async () => {
@@ -77,7 +97,12 @@ export default function PolicyList() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-4">
         <div><h1 className="text-xl font-bold mb-1">政策库</h1><p className="text-[14px] text-muted">{data ? `${data.length} 项政策` : '加载中...'}</p></div>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ 新增政策</button>
+        <div className="flex gap-2">
+          <a href={`${API_BASE}/policies/export`} download className="btn btn-secondary">⬇ 导出</a>
+          <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>⬆ 导入</button>
+          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>+ 新增政策</button>
+        </div>
+        <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => handleImport(e.target.files)} />
       </div>
       <input className="w-full px-4 py-2.5 border border-border rounded-md text-[14px] mb-4 focus:outline-none focus:border-accent bg-white"
         placeholder="搜索政策标题..." value={search} onChange={(e) => setSearch(e.target.value)} />
