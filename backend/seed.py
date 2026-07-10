@@ -1,7 +1,9 @@
 """Seed database with mock data for 新能源汽车产业链."""
 
+from datetime import date
+
 from database import SessionLocal, init_db
-from models import Enterprise, Policy, Property, IndustryChain, IndustryChainNode, IndustryChainEdge, ChainNodeEnterprise
+from models import Enterprise, Policy, Property, IndustryChain, IndustryChainNode, IndustryChainEdge, ChainNodeEnterprise, Lead
 
 
 def seed():
@@ -133,9 +135,33 @@ def seed():
             if ent:
                 db.add(ChainNodeEnterprise(node_id=nodes[node_idx].id, enterprise_id=ent.id))
 
+    # ── Leads (招商线索) ──────────────────
+    leads = [
+        Lead(title="宁德时代二期扩产", enterprise_id=ent_map["宁德时代新能源科技"].id,
+             company_name="宁德时代新能源科技", source="以商招商", stage="深度对接", priority="高",
+             owner="张明", contact_name="张总", contact_info="138xxxx", intent_investment="50亿",
+             intent_region="高新区", expected_landing_date=date(2026, 12, 31), progress=60,
+             next_action="安排实地考察与用地洽谈", notes="链主项目，需重点保障用地",
+             follow_ups=[{"date": "2026-07-01", "content": "首次对接，了解扩产意向", "owner": "张明"}]),
+        Lead(title="比亚迪半导体封测产线", enterprise_id=ent_map["比亚迪半导体"].id,
+             company_name="比亚迪半导体", source="招商推介", stage="意向洽谈", priority="高",
+             owner="李华", contact_name="李总", contact_info="139xxxx", intent_investment="20亿",
+             intent_region="经开区", expected_landing_date=date(2027, 6, 30), progress=35,
+             next_action="对接研发中心选址", notes="关注人才公寓配套", follow_ups=[]),
+        Lead(title="均胜电子区域总部", enterprise_id=ent_map["均胜电子"].id,
+             company_name="均胜电子", source="主动挖掘", stage="初步接触", priority="中",
+             owner="王芳", contact_name="王总", contact_info="137xxxx", intent_investment="8亿",
+             intent_region="高新区", progress=10, next_action="电话拜访了解意向", follow_ups=[]),
+        Lead(title="远景储能科技新设基地", enterprise_id=None,
+             company_name="远景储能科技", source="展会", stage="初步接触", priority="中",
+             owner="张明", contact_name="陈总", contact_info="135xxxx", intent_investment="12亿",
+             intent_region="临港", progress=5, next_action="收集企业资料", follow_ups=[]),
+    ]
+    db.add_all(leads)
+
     db.commit()
     db.close()
-    print("✅ Seed data loaded: 11 enterprises, 5 policies, 4 properties, 1 chain (8 nodes)")
+    print("✅ Seed data loaded: 11 enterprises, 5 policies, 4 properties, 1 chain (8 nodes), 4 leads")
 
 
 if __name__ == "__main__":

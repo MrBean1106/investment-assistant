@@ -119,3 +119,44 @@ export interface StatsResponse {
   total_reports: number;
   recent_enterprises: RecentEnterprise[];
 }
+
+// ── Leads (招商线索) types ──
+
+export interface FollowUp {
+  date: string;
+  content: string;
+  owner: string;
+}
+
+export interface Lead {
+  id: number;
+  title: string | null;
+  enterprise_id: number | null;
+  company_name: string;
+  source: string | null;
+  stage: string;
+  priority: string;
+  owner: string | null;
+  contact_name: string | null;
+  contact_info: string | null;
+  intent_investment: string | null;
+  intent_region: string | null;
+  expected_landing_date: string | null;
+  progress: number;
+  next_action: string | null;
+  notes: string | null;
+  follow_ups: FollowUp[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface LeadListResponse {
+  items: Lead[];
+  total: number;
+}
+
+export interface LeadStats {
+  by_stage: Record<string, number>;
+  total: number;
+  active: number;
+}

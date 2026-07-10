@@ -13,6 +13,7 @@ from routers.enterprises import router as enterprises_router
 from routers.resources import policies_router, properties_router
 from routers.industry_chain import router as industry_chain_router
 from routers.ai import router as ai_router
+from routers.leads import router as leads_router
 from routers.reports import router as reports_router
 from routers.upload import router as upload_router
 from routers.stats import router as stats_router
@@ -45,6 +46,7 @@ app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(upload_router, prefix="/api/files", tags=["files"])
 app.include_router(documents_router, prefix="/api/files", tags=["files"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
+app.include_router(leads_router, prefix="/api/leads", tags=["leads"])
 
 
 @app.get("/api/health")

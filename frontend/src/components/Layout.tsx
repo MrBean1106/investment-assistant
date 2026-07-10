@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/', label: '工作台', icon: '▦' },
   { to: '/chain', label: '产业图谱', icon: '◎' },
   { to: '/enterprises', label: '企业库', icon: '▤' },
+  { to: '/leads', label: '招商线索', icon: '◈' },
   { to: '/policies', label: '政策库', icon: '▥' },
   { to: '/properties', label: '物业资源', icon: '◫' },
   { to: '/reports', label: '报告中心', icon: '▣' },

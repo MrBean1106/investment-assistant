@@ -4,6 +4,7 @@ from .property import Property
 from .industry_chain import IndustryChain, IndustryChainNode, IndustryChainEdge, ChainNodeEnterprise
 from .report import Report
 from .document import Document
+from .lead import Lead
 
 __all__ = [
     "Enterprise",
@@ -15,4 +16,5 @@ __all__ = [
     "ChainNodeEnterprise",
     "Report",
     "Document",
+    "Lead",
 ]
