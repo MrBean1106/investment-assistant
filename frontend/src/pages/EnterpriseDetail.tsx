@@ -9,6 +9,14 @@ import Modal from '../components/Modal';
 
 const STATUS_MAP: Record<string, string> = { '线索': 'tag-orange', '洽谈中': 'tag-blue', '已签约': 'tag-green', '已落地': 'tag-green' };
 
+interface InvestmentAnalysis {
+  rating?: string;
+  highlights?: string[];
+  risks?: string[];
+  estimated_investment?: string;
+  job_creation?: string;
+}
+
 export default function EnterpriseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -26,6 +34,10 @@ export default function EnterpriseDetail() {
   const [propertyMatches, setPropertyMatches] = useState<MatchResult[] | null>(null);
   const [matchLoading, setMatchLoading] = useState<'policies' | 'properties' | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
+
+  // AI profile generation state
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const runPolicyMatch = useCallback(async () => {
     if (!ent) return;
@@ -54,6 +66,21 @@ export default function EnterpriseDetail() {
       setMatchLoading(null);
     }
   }, [ent]);
+
+  const runProfile = useCallback(async () => {
+    if (!ent) return;
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      await aiApi.generateProfile(ent.id);
+      qc.invalidateQueries({ queryKey: ['enterprise', ent.id] });
+      qc.invalidateQueries({ queryKey: ['enterprises'] });
+    } catch (e) {
+      setProfileError((e as Error).message);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [ent, qc]);
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -144,23 +171,80 @@ export default function EnterpriseDetail() {
       </div>
 
       {tab === 'profile' && (
-        <div className="card p-5">
-          <h3 className="font-semibold text-[14px] mb-3">痛点与需求分析</h3>
-          {Object.keys(painPoints).length === 0 ? (
-            <div className="text-center py-8 text-muted">
-              <p>暂无痛点分析数据</p>
-              <Link to={`/workflow/${ent.id}`} className="text-accent text-[13px] mt-2 inline-block hover:underline">进入工作流生成画像 →</Link>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-[14px]">企业画像与需求分析</h3>
+            <button
+              className={`btn text-[13px] ${profileLoading ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={runProfile}
+              disabled={profileLoading}
+            >
+              {profileLoading ? '⏳ AI 生成中...' : '🤖 AI 生成画像'}
+            </button>
+          </div>
+
+          {profileError && (
+            <div className="card p-4 text-red-500 text-[13px]">❌ 生成失败：{profileError}</div>
+          )}
+
+          {!ent.analysis_text && Object.keys(painPoints).length === 0 && !ent.needs && (
+            <div className="card p-8 text-center text-muted">
+              <p className="text-2xl mb-2">🤖</p>
+              <p>尚未生成 AI 画像</p>
+              <p className="text-[12px] mt-1">点击「AI 生成画像」基于企业信息智能分析痛点、需求与投资价值</p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {Object.entries(painPoints).map(([cat, items]) => (
-                <div key={cat} className="border border-border rounded-md p-3">
-                  <span className="text-[13px] font-semibold">{cat}</span>
-                  <ul className="text-[13px] text-muted list-disc list-inside mt-1">
-                    {Array.isArray(items) && items.map((it, i) => <li key={i}>{it}</li>)}
-                  </ul>
+          )}
+
+          {ent.analysis_text && (
+            <div className="card p-5">
+              <h4 className="font-semibold text-[13px] mb-2">📌 企业概述</h4>
+              <p className="text-[13px] text-muted">{ent.analysis_text}</p>
+            </div>
+          )}
+
+          {ent.needs && (() => {
+            const inv = ent.needs as InvestmentAnalysis;
+            return (
+              <div className="card p-5">
+                <h4 className="font-semibold text-[13px] mb-3">📊 投资价值研判</h4>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {inv.rating && <span className="tag tag-green">评级 {inv.rating}</span>}
+                  {inv.estimated_investment && <span className="tag tag-blue">预估投资 {inv.estimated_investment}</span>}
+                  {inv.job_creation && <span className="tag tag-gray">{inv.job_creation}</span>}
                 </div>
-              ))}
+                {Array.isArray(inv.highlights) && inv.highlights.length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-[13px] font-semibold">核心优势</span>
+                    <ul className="text-[13px] text-muted list-disc list-inside mt-1">
+                      {inv.highlights.map((h, i) => <li key={i}>{h}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(inv.risks) && inv.risks.length > 0 && (
+                  <div>
+                    <span className="text-[13px] font-semibold">关注风险</span>
+                    <ul className="text-[13px] text-muted list-disc list-inside mt-1">
+                      {inv.risks.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {Object.keys(painPoints).length > 0 && (
+            <div className="card p-5">
+              <h4 className="font-semibold text-[13px] mb-3">🎯 多维需求分析</h4>
+              <div className="space-y-3">
+                {Object.entries(painPoints).map(([cat, items]) => (
+                  <div key={cat} className="border border-border rounded-md p-3">
+                    <span className="text-[13px] font-semibold">{cat}</span>
+                    <ul className="text-[13px] text-muted list-disc list-inside mt-1">
+                      {Array.isArray(items) && items.map((it, i) => <li key={i}>{it}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
