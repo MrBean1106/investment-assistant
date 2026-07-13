@@ -54,6 +54,7 @@ ENT_COLUMNS = [
     # ── 模板扩展字段（表头沿用企业库 Excel 模板，便于互通）──
     ("founder", "创始人/法人"), ("registration", "注册地"), ("leader", "负责人"),
     ("intro", "简介（主营、行业地位、营收情况）"),
+    ("main_business", "主营业务情况"),
     ("funding_round", "融资轮次"), ("pre_valuation", "投前估值（亿元）"),
     ("demand_amount", "需求金额（万元）"), ("first_visit", "首次拜访"),
     ("space_demand", "招商需求（㎡）"), ("recommended_park", "推荐园区"),

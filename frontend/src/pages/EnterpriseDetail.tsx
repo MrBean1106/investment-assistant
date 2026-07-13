@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { enterpriseApi } from '../api/enterprises';
 import { aiApi, type MatchResult } from '../api/ai';
-import { useState, useCallback } from 'react';
+import { attachmentsApi } from '../api/attachments';
+import { useState, useCallback, useRef } from 'react';
 import Modal from '../components/Modal';
 
 const STATUS_MAP: Record<string, string> = { '线索': 'tag-orange', '洽谈中': 'tag-blue', '已签约': 'tag-green', '已落地': 'tag-green' };
@@ -27,7 +28,7 @@ export default function EnterpriseDetail() {
     queryFn: () => api.get<Array<{ node_id: number; node_name: string; node_layer: string; chain_id: number; chain_name: string }>>(`/industry-chain/enterprise/${id}/chains`),
     enabled: !!id,
   });
-  const [tab, setTab] = useState<'profile' | 'match'>('profile');
+  const [tab, setTab] = useState<'profile' | 'match' | 'files'>('profile');
 
   // Match state
   const [policyMatches, setPolicyMatches] = useState<MatchResult[] | null>(null);
@@ -82,6 +83,44 @@ export default function EnterpriseDetail() {
     }
   }, [ent, qc]);
 
+  // Attachment (过程文件) state
+  const [fileNote, setFileNote] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: files, isLoading: filesLoading, refetch: refetchFiles } = useQuery({
+    queryKey: ['enterprise-files', Number(id)],
+    queryFn: () => attachmentsApi.list(Number(id)),
+    enabled: !!id && tab === 'files',
+  });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = e.target.files;
+    if (!list || !ent) return;
+    setUploading(true);
+    try {
+      for (const f of Array.from(list)) {
+        await attachmentsApi.upload(ent.id, f, fileNote || undefined);
+      }
+      setFileNote('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await refetchFiles();
+    } catch (err) {
+      alert('上传失败: ' + (err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (docId: number) => {
+    if (!confirm('确认删除该附件？')) return;
+    try {
+      await attachmentsApi.remove(docId);
+      await refetchFiles();
+    } catch (err) {
+      alert('删除失败: ' + (err as Error).message);
+    }
+  };
+
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -94,7 +133,7 @@ export default function EnterpriseDetail() {
       scale: ent.scale || '', status: ent.status, contact: ent.contact || '', demand: ent.demand || '',
       invest_rating: ent.invest_rating || '', tags: ent.tags?.join(', ') || '',
       founder: ent.founder || '', registration: ent.registration || '', leader: ent.leader || '',
-      intro: ent.intro || '', funding_round: ent.funding_round || '',
+      intro: ent.intro || '', main_business: ent.main_business || '', funding_round: ent.funding_round || '',
       pre_valuation: ent.pre_valuation != null ? String(ent.pre_valuation) : '',
       demand_amount: ent.demand_amount != null ? String(ent.demand_amount) : '',
       first_visit: ent.first_visit || '', space_demand: ent.space_demand || '',
@@ -198,6 +237,7 @@ export default function EnterpriseDetail() {
           <div><span className="text-muted">首次对接：</span>{ent.first_contact || '-'}</div>
         </div>
         {ent.intro && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">简介（主营/行业地位/营收）：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.intro}</p></div>}
+        {ent.main_business && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">主营业务情况：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.main_business}</p></div>}
         {ent.progress_update && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">进度更新：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.progress_update}</p></div>}
         {ent.related_files && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">相关文件：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.related_files}</p></div>}
       </div>
@@ -205,6 +245,7 @@ export default function EnterpriseDetail() {
       <div className="flex gap-2 mb-4">
         <button onClick={() => setTab('profile')} className={`btn text-[13px] ${tab === 'profile' ? 'btn-primary' : 'btn-secondary'}`}>📋 企业画像</button>
         <button onClick={() => setTab('match')} className={`btn text-[13px] ${tab === 'match' ? 'btn-primary' : 'btn-secondary'}`}>🔍 资源匹配</button>
+        <button onClick={() => setTab('files')} className={`btn text-[13px] ${tab === 'files' ? 'btn-primary' : 'btn-secondary'}`}>📎 附件 ({files?.length || 0})</button>
       </div>
 
       {tab === 'profile' && (
@@ -371,6 +412,60 @@ export default function EnterpriseDetail() {
         </div>
       )}
 
+      {tab === 'files' && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="font-semibold text-[14px]">📎 过程文件 / 附件</h3>
+              <div className="flex gap-2 items-center">
+                <input
+                  className="px-3 py-2 border border-border rounded-md text-[13px] w-44"
+                  placeholder="备注（如：BP、尽调报告）"
+                  value={fileNote}
+                  onChange={(e) => setFileNote(e.target.value)}
+                />
+                <button className={`btn text-[13px] ${uploading ? 'btn-secondary' : 'btn-primary'}`} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  {uploading ? '⏳ 上传中...' : '⬆ 上传文件'}
+                </button>
+                <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+              </div>
+            </div>
+
+            {filesLoading ? (
+              <div className="text-center text-muted py-8">⏳ 加载附件...</div>
+            ) : files && files.length > 0 ? (
+              <div className="space-y-2">
+                {files.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between border border-border rounded-md p-3">
+                    <div className="min-w-0">
+                      <a href={attachmentsApi.downloadUrl(a.id)} target="_blank" rel="noreferrer" className="text-[13px] font-medium hover:underline text-accent truncate block">
+                        {a.filename}
+                      </a>
+                      <div className="text-[11px] text-muted mt-0.5 flex gap-2 flex-wrap">
+                        <span className="uppercase">{a.file_type}</span>
+                        <span>{(a.size / 1024).toFixed(1)} KB</span>
+                        {a.note && <span>· {a.note}</span>}
+                        {a.created_at && <span>· {new Date(a.created_at).toLocaleDateString()}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <a href={attachmentsApi.downloadUrl(a.id)} target="_blank" rel="noreferrer" className="btn btn-secondary text-[12px]">⬇ 下载</a>
+                      <button className="btn btn-secondary text-[12px]" onClick={() => handleDeleteFile(a.id)}>🗑 删除</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted py-8">
+                <p className="text-2xl mb-2">📎</p>
+                <p>暂无过程文件附件</p>
+                <p className="text-[12px] mt-1">上传 BP、尽调报告、会议纪要、扫描件等过程文件，作为该企业招商推进的附件留档，可在线预览/下载</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title={`编辑 — ${ent.name}`}>
         <div className="space-y-3">
@@ -402,6 +497,7 @@ export default function EnterpriseDetail() {
           </div>
           <div><label className="text-[12px] text-muted">核心需求</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.demand || ''} onChange={set('demand')} /></div>
           <div><label className="text-[12px] text-muted">简介（主营、行业地位、营收情况）</label><textarea className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" rows={2} value={form.intro || ''} onChange={set('intro')} /></div>
+          <div><label className="text-[12px] text-muted">主营业务情况</label><textarea className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" rows={2} value={form.main_business || ''} onChange={set('main_business')} /></div>
           <div><label className="text-[12px] text-muted">进度更新（每两周更新）</label><textarea className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" rows={2} value={form.progress_update || ''} onChange={set('progress_update')} /></div>
           <div><label className="text-[12px] text-muted">相关文件</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.related_files || ''} onChange={set('related_files')} /></div>
           <div><label className="text-[12px] text-muted">标签（逗号分隔）</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.tags || ''} onChange={set('tags')} /></div>

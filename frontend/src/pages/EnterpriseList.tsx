@@ -12,7 +12,7 @@ const STATUS_MAP: Record<string, string> = {
 };
 const EMPTY_FORM = {
   name: '', industry: '', segment: '', region: '', scale: '', status: '线索', contact: '', demand: '', invest_rating: '', tags: '',
-  founder: '', registration: '', leader: '', intro: '', funding_round: '',
+  founder: '', registration: '', leader: '', intro: '', main_business: '', funding_round: '',
   pre_valuation: '', demand_amount: '', first_visit: '', space_demand: '', recommended_park: '',
   decision_status: '', progress_update: '', project_source: '', investment_lead: '', investment_contact: '',
   first_contact: '', related_files: '',
@@ -186,6 +186,7 @@ export default function EnterpriseList() {
           </div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>核心需求</label><input className="input mt-0.5" value={form.demand} onChange={set('demand')} /></div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>简介（主营、行业地位、营收情况）</label><textarea className="input mt-0.5" rows={2} value={form.intro} onChange={set('intro')} /></div>
+          <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>主营业务情况</label><textarea className="input mt-0.5" rows={2} value={form.main_business} onChange={set('main_business')} /></div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>进度更新（每两周更新）</label><textarea className="input mt-0.5" rows={2} value={form.progress_update} onChange={set('progress_update')} /></div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>相关文件</label><input className="input mt-0.5" value={form.related_files} onChange={set('related_files')} /></div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>标签（逗号分隔）</label><input className="input mt-0.5" value={form.tags} onChange={set('tags')} placeholder="上市企业, 专精特新, 链主" /></div>

@@ -18,6 +18,7 @@ export interface Enterprise {
   registration: string | null;
   leader: string | null;
   intro: string | null;
+  main_business: string | null;
   funding_round: string | null;
   pre_valuation: number | null;
   demand_amount: number | null;
@@ -38,6 +39,20 @@ export interface Enterprise {
 export interface EnterpriseListResponse {
   items: Enterprise[];
   total: number;
+}
+
+/** 企业过程文件附件（关联 documents 表） */
+export interface Attachment {
+  id: number;
+  filename: string;
+  file_type: string;
+  ext: string | null;
+  ocr_used: boolean;
+  size: number;
+  content_preview: string;
+  created_at: string | null;
+  enterprise_id: number | null;
+  note: string | null;
 }
 
 export interface Policy {

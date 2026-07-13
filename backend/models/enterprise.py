@@ -28,6 +28,7 @@ class Enterprise(Base):
     registration = Column(String(100), comment="注册地")
     leader = Column(String(100), comment="负责人")
     intro = Column(Text, comment="简介（主营、行业地位、营收情况）")
+    main_business = Column(Text, comment="主营业务情况")
     funding_round = Column(String(20), comment="融资轮次")
     pre_valuation = Column(Float, comment="投前估值（亿元）")
     demand_amount = Column(Float, comment="需求金额（万元）")

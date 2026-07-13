@@ -24,6 +24,7 @@ class EnterpriseBase(BaseModel):
     registration: Optional[str] = None
     leader: Optional[str] = None
     intro: Optional[str] = None
+    main_business: Optional[str] = None
     funding_round: Optional[str] = None
     pre_valuation: Optional[float] = None
     demand_amount: Optional[float] = None
@@ -62,6 +63,7 @@ class EnterpriseUpdate(BaseModel):
     registration: Optional[str] = None
     leader: Optional[str] = None
     intro: Optional[str] = None
+    main_business: Optional[str] = None
     funding_round: Optional[str] = None
     pre_valuation: Optional[float] = None
     demand_amount: Optional[float] = None

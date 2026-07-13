@@ -1,8 +1,9 @@
-"""File upload endpoint for AI chat context, with OCR for scanned files."""
+"""File upload endpoint for AI chat context and enterprise attachments, with OCR for scanned files."""
 
 import base64
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File
+from uuid import uuid4
+from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 
 from database import SessionLocal
@@ -20,7 +21,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 OCR_ENGINE = engine_name()
 
 
-def _persist(filename, file_type, ext, content, ocr_used, size) -> int | None:
+def _persist(filename, file_type, ext, content, ocr_used, size, stored_name=None, enterprise_id=None, note=None) -> int | None:
     """Store the parsed upload in the documents table. Returns the row id."""
     try:
         db = SessionLocal()
@@ -32,6 +33,9 @@ def _persist(filename, file_type, ext, content, ocr_used, size) -> int | None:
             ocr_used=ocr_used,
             ocr_engine=OCR_ENGINE if ocr_used else None,
             size=size,
+            stored_name=stored_name,
+            enterprise_id=enterprise_id,
+            note=note,
         )
         db.add(doc)
         db.commit()
@@ -45,7 +49,11 @@ def _persist(filename, file_type, ext, content, ocr_used, size) -> int | None:
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    enterprise_id: int | None = Form(None),
+    note: str | None = Form(None),
+):
     try:
         raw = await file.read()
         filename = file.filename or "unknown"
@@ -55,6 +63,9 @@ async def upload_file(file: UploadFile = File(...)):
         image_base64 = ""
         ocr_used = False
 
+        # 始终保存原始二进制，便于后续按附件下载
+        stored_name = f"{uuid4().hex}{ext}"
+
         if ext in ALLOWED_TEXT:
             file_type = "text"
             content = raw.decode('utf-8', errors='replace')
@@ -62,7 +73,7 @@ async def upload_file(file: UploadFile = File(...)):
         elif ext in ALLOWED_IMAGE:
             file_type = "image"
             safe_name = Path(filename).name
-            (UPLOAD_DIR / safe_name).write_bytes(raw)
+            (UPLOAD_DIR / stored_name).write_bytes(raw)
             image_base64 = base64.b64encode(raw).decode()
             # OCR so text-only LLMs (e.g. DeepSeek) can read the image.
             text, used, err = ocr_bytes(raw, ext)
@@ -86,13 +97,14 @@ async def upload_file(file: UploadFile = File(...)):
                         content = "[PDF 未提取到任何文本（OCR 也未能识别，可能是空白或加密文件）]"
             except Exception as e:
                 content = f"[PDF 解析失败: {e}]"
+            (UPLOAD_DIR / stored_name).write_bytes(raw)
 
         else:
             content = f"[不支持的文件类型: {ext}]"
 
         # PDF / OCR 文本较长，放宽截断上限；其余类型保持 5000
         cap = 8000 if (file_type == "pdf" or ocr_used) else 5000
-        doc_id = _persist(filename, file_type, ext, content[:cap], ocr_used, len(raw))
+        doc_id = _persist(filename, file_type, ext, content[:cap], ocr_used, len(raw), stored_name, enterprise_id, note)
 
         return JSONResponse({
             "filename": filename,
@@ -102,6 +114,7 @@ async def upload_file(file: UploadFile = File(...)):
             "ocr_used": ocr_used,
             "ocr_engine": OCR_ENGINE if ocr_used else None,
             "document_id": doc_id,
+            "enterprise_id": enterprise_id,
             "size": len(raw),
         })
     except Exception as e:
