@@ -93,6 +93,15 @@ export default function EnterpriseDetail() {
       name: ent.name, industry: ent.industry, segment: ent.segment || '', region: ent.region || '',
       scale: ent.scale || '', status: ent.status, contact: ent.contact || '', demand: ent.demand || '',
       invest_rating: ent.invest_rating || '', tags: ent.tags?.join(', ') || '',
+      founder: ent.founder || '', registration: ent.registration || '', leader: ent.leader || '',
+      intro: ent.intro || '', funding_round: ent.funding_round || '',
+      pre_valuation: ent.pre_valuation != null ? String(ent.pre_valuation) : '',
+      demand_amount: ent.demand_amount != null ? String(ent.demand_amount) : '',
+      first_visit: ent.first_visit || '', space_demand: ent.space_demand || '',
+      recommended_park: ent.recommended_park || '', decision_status: ent.decision_status || '',
+      progress_update: ent.progress_update || '', project_source: ent.project_source || '',
+      investment_lead: ent.investment_lead || '', investment_contact: ent.investment_contact || '',
+      first_contact: ent.first_contact || '', related_files: ent.related_files || '',
     });
     setEditOpen(true);
   };
@@ -101,10 +110,15 @@ export default function EnterpriseDetail() {
     if (!ent || !form.name || !form.industry) return;
     setSaving(true);
     try {
-      await enterpriseApi.update(ent.id, {
+      const payload: Record<string, unknown> = {
         ...form,
         tags: form.tags ? form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean) : [],
-      });
+      };
+      for (const f of ['pre_valuation', 'demand_amount']) {
+        const v = payload[f];
+        payload[f] = v === '' || v == null ? null : Number(v);
+      }
+      await enterpriseApi.update(ent.id, payload);
       qc.invalidateQueries({ queryKey: ['enterprise', ent.id] });
       qc.invalidateQueries({ queryKey: ['enterprises'] });
       setEditOpen(false);
@@ -112,7 +126,7 @@ export default function EnterpriseDetail() {
     finally { setSaving(false); }
   };
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (isLoading) return <div className="p-8 text-center text-muted">⏳ 加载中...</div>;
@@ -147,8 +161,14 @@ export default function EnterpriseDetail() {
           <div><span className="text-muted">细分：</span>{ent.segment || '-'}</div>
           <div><span className="text-muted">地区：</span>{ent.region || '-'}</div>
           <div><span className="text-muted">规模：</span>{ent.scale || '-'}</div>
-          <div><span className="text-muted">联系人：</span>{ent.contact || '-'}</div>
           <div><span className="text-muted">状态：</span>{ent.status}</div>
+          <div><span className="text-muted">联系人：</span>{ent.contact || '-'}</div>
+          <div><span className="text-muted">创始人/法人：</span>{ent.founder || '-'}</div>
+          <div><span className="text-muted">注册地：</span>{ent.registration || '-'}</div>
+          <div><span className="text-muted">负责人：</span>{ent.leader || '-'}</div>
+          <div><span className="text-muted">投资负责人：</span>{ent.investment_lead || '-'}</div>
+          <div><span className="text-muted">招商对接人：</span>{ent.investment_contact || '-'}</div>
+          <div><span className="text-muted">项目来源：</span>{ent.project_source || '-'}</div>
         </div>
         {ent.demand && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">核心需求：</span><span className="text-[13px]">{ent.demand}</span></div>}
         {(chainMemberships && chainMemberships.length > 0) && (
@@ -163,6 +183,23 @@ export default function EnterpriseDetail() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="card p-5 mb-4">
+        <h3 className="font-semibold text-[14px] mb-3">招商推进信息</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[13px]">
+          <div><span className="text-muted">融资轮次：</span>{ent.funding_round || '-'}</div>
+          <div><span className="text-muted">投前估值：</span>{ent.pre_valuation != null ? `${ent.pre_valuation} 亿元` : '-'}</div>
+          <div><span className="text-muted">需求金额：</span>{ent.demand_amount != null ? `${ent.demand_amount} 万元` : '-'}</div>
+          <div><span className="text-muted">招商需求：</span>{ent.space_demand ? `${ent.space_demand} ㎡` : '-'}</div>
+          <div><span className="text-muted">决策状态：</span>{ent.decision_status || '-'}</div>
+          <div><span className="text-muted">推荐园区：</span>{ent.recommended_park || '-'}</div>
+          <div><span className="text-muted">首次拜访：</span>{ent.first_visit || '-'}</div>
+          <div><span className="text-muted">首次对接：</span>{ent.first_contact || '-'}</div>
+        </div>
+        {ent.intro && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">简介（主营/行业地位/营收）：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.intro}</p></div>}
+        {ent.progress_update && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">进度更新：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.progress_update}</p></div>}
+        {ent.related_files && <div className="mt-3 pt-3 border-t border-border"><span className="text-muted text-[13px]">相关文件：</span><p className="text-[13px] mt-1 whitespace-pre-wrap">{ent.related_files}</p></div>}
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -347,7 +384,26 @@ export default function EnterpriseDetail() {
             <div><label className="text-[12px] text-muted">联系人</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.contact || ''} onChange={set('contact')} /></div>
             <div><label className="text-[12px] text-muted">评级</label><select className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5 bg-white" value={form.invest_rating || ''} onChange={set('invest_rating')}><option value="">--</option><option>A</option><option>A-</option><option>B+</option><option>B</option><option>C</option></select></div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-[12px] text-muted">创始人/法人</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.founder || ''} onChange={set('founder')} /></div>
+            <div><label className="text-[12px] text-muted">注册地</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.registration || ''} onChange={set('registration')} /></div>
+            <div><label className="text-[12px] text-muted">负责人</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.leader || ''} onChange={set('leader')} /></div>
+            <div><label className="text-[12px] text-muted">投资负责人</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.investment_lead || ''} onChange={set('investment_lead')} /></div>
+            <div><label className="text-[12px] text-muted">招商对接人</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.investment_contact || ''} onChange={set('investment_contact')} /></div>
+            <div><label className="text-[12px] text-muted">项目来源</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.project_source || ''} onChange={set('project_source')} /></div>
+            <div><label className="text-[12px] text-muted">融资轮次</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.funding_round || ''} onChange={set('funding_round')} /></div>
+            <div><label className="text-[12px] text-muted">投前估值（亿元）</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.pre_valuation || ''} onChange={set('pre_valuation')} inputMode="decimal" /></div>
+            <div><label className="text-[12px] text-muted">需求金额（万元）</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.demand_amount || ''} onChange={set('demand_amount')} inputMode="decimal" /></div>
+            <div><label className="text-[12px] text-muted">招商需求（㎡）</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.space_demand || ''} onChange={set('space_demand')} /></div>
+            <div><label className="text-[12px] text-muted">决策状态</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.decision_status || ''} onChange={set('decision_status')} /></div>
+            <div><label className="text-[12px] text-muted">推荐园区</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.recommended_park || ''} onChange={set('recommended_park')} /></div>
+            <div><label className="text-[12px] text-muted">首次拜访</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.first_visit || ''} onChange={set('first_visit')} /></div>
+            <div><label className="text-[12px] text-muted">首次对接</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.first_contact || ''} onChange={set('first_contact')} /></div>
+          </div>
           <div><label className="text-[12px] text-muted">核心需求</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.demand || ''} onChange={set('demand')} /></div>
+          <div><label className="text-[12px] text-muted">简介（主营、行业地位、营收情况）</label><textarea className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" rows={2} value={form.intro || ''} onChange={set('intro')} /></div>
+          <div><label className="text-[12px] text-muted">进度更新（每两周更新）</label><textarea className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" rows={2} value={form.progress_update || ''} onChange={set('progress_update')} /></div>
+          <div><label className="text-[12px] text-muted">相关文件</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.related_files || ''} onChange={set('related_files')} /></div>
           <div><label className="text-[12px] text-muted">标签（逗号分隔）</label><input className="w-full px-3 py-2 border border-border rounded-md text-[13px] mt-0.5" value={form.tags || ''} onChange={set('tags')} /></div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="btn btn-secondary" onClick={() => setEditOpen(false)}>取消</button>

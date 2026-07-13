@@ -9,7 +9,6 @@ import PropertyList from './pages/PropertyList';
 import ReportList from './pages/ReportList';
 import Workflow from './pages/Workflow';
 import AIChat from './pages/AIChat';
-import Documents from './pages/Documents';
 import Leads from './pages/Leads';
 
 function App() {
@@ -25,7 +24,6 @@ function App() {
           <Route path="properties" element={<PropertyList />} />
           <Route path="reports" element={<ReportList />} />
           <Route path="workflow/:enterpriseId" element={<Workflow />} />
-          <Route path="documents" element={<Documents />} />
           <Route path="leads" element={<Leads />} />
           <Route path="ai" element={<AIChat />} />
         </Route>

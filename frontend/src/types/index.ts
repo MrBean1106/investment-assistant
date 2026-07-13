@@ -13,6 +13,24 @@ export interface Enterprise {
   pain_points: Record<string, string[]> | null;
   needs: Record<string, unknown> | null;
   analysis_text: string | null;
+  // ── 企业库模板扩展字段 ──
+  founder: string | null;
+  registration: string | null;
+  leader: string | null;
+  intro: string | null;
+  funding_round: string | null;
+  pre_valuation: number | null;
+  demand_amount: number | null;
+  first_visit: string | null;
+  space_demand: string | null;
+  recommended_park: string | null;
+  decision_status: string | null;
+  progress_update: string | null;
+  project_source: string | null;
+  investment_lead: string | null;
+  investment_contact: string | null;
+  first_contact: string | null;
+  related_files: string | null;
   created_at: string | null;
   updated_at: string | null;
 }

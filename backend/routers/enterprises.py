@@ -33,6 +33,8 @@ def list_enterprises(
             (Enterprise.name.ilike(like))
             | (Enterprise.industry.ilike(like))
             | (Enterprise.segment.ilike(like))
+            | (Enterprise.founder.ilike(like))
+            | (Enterprise.project_source.ilike(like))
         )
     if status:
         query = query.filter(Enterprise.status == status)
@@ -49,7 +51,42 @@ ENT_COLUMNS = [
     ("region", "所在地区"), ("scale", "企业规模"), ("status", "招商状态"),
     ("contact", "联系人"), ("demand", "核心需求"), ("invest_rating", "投资评级"),
     ("tags", "标签(逗号分隔)"),
+    # ── 模板扩展字段（表头沿用企业库 Excel 模板，便于互通）──
+    ("founder", "创始人/法人"), ("registration", "注册地"), ("leader", "负责人"),
+    ("intro", "简介（主营、行业地位、营收情况）"),
+    ("funding_round", "融资轮次"), ("pre_valuation", "投前估值（亿元）"),
+    ("demand_amount", "需求金额（万元）"), ("first_visit", "首次拜访"),
+    ("space_demand", "招商需求（㎡）"), ("recommended_park", "推荐园区"),
+    ("decision_status", "决策状态"),
+    ("progress_update", "2026年6月  进度更新（详细）每两周更新"),
+    ("project_source", "项目来源"), ("investment_lead", "投资负责人"),
+    ("investment_contact", "招商对接人"), ("first_contact", "首次对接"),
+    ("related_files", "相关文件"),
 ]
+
+# 导入时转换为数值的字段
+_FLOAT_FIELDS = {"pre_valuation", "demand_amount"}
+
+
+def _coerce_row(r: dict) -> dict:
+    """清理导入行：标签拆分、数值字段转换、空值剔除。"""
+    tags = r.get("tags")
+    if isinstance(tags, str):
+        r["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+    for f in _FLOAT_FIELDS:
+        v = r.get(f)
+        if v in (None, ""):
+            continue
+        if isinstance(v, str):
+            cleaned = v.replace(" ", "").replace(",", "").strip()
+            if cleaned:
+                try:
+                    r[f] = float(cleaned)
+                except ValueError:
+                    r[f] = None
+        elif isinstance(v, (int, float)):
+            r[f] = float(v)
+    return {k: v for k, v in r.items() if v not in (None, "")}
 
 
 @router.get("/export")
@@ -74,11 +111,8 @@ async def import_enterprises(file: UploadFile = File(...), db: Session = Depends
     content = await file.read()
     rows = xlsx_to_rows(content, ENT_COLUMNS)
     created = 0
-    for r in rows:
-        tags = r.get("tags")
-        if isinstance(tags, str):
-            r["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
-        r = {k: v for k, v in r.items() if v not in (None, "")}
+    for raw in rows:
+        r = _coerce_row(raw)
         if not r.get("name"):
             continue
         db.add(Enterprise(**r))

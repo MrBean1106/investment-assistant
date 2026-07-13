@@ -38,3 +38,44 @@ def get_db():
 def init_db():
     """Create all tables. Call once at startup."""
     Base.metadata.create_all(bind=engine)
+    # 兼容已有 SQLite 库：新增列通过 ALTER 追加，不丢数据
+    _migrate_enterprise_columns()
+
+
+# 企业库模板扩展字段 -> (列名, SQL 类型)。init_db 时若缺失则追加。
+_ENTERPRISE_NEW_COLUMNS = [
+    ("founder", "VARCHAR(100)"),
+    ("registration", "VARCHAR(100)"),
+    ("leader", "VARCHAR(100)"),
+    ("intro", "TEXT"),
+    ("funding_round", "VARCHAR(20)"),
+    ("pre_valuation", "FLOAT"),
+    ("demand_amount", "FLOAT"),
+    ("first_visit", "VARCHAR(50)"),
+    ("space_demand", "VARCHAR(100)"),
+    ("recommended_park", "VARCHAR(200)"),
+    ("decision_status", "VARCHAR(50)"),
+    ("progress_update", "TEXT"),
+    ("project_source", "VARCHAR(100)"),
+    ("investment_lead", "VARCHAR(100)"),
+    ("investment_contact", "VARCHAR(100)"),
+    ("first_contact", "VARCHAR(50)"),
+    ("related_files", "TEXT"),
+]
+
+
+def _migrate_enterprise_columns():
+    """为已存在的 enterprises 表追加模板新增字段（幂等）。"""
+    try:
+        inspector = __import__("sqlalchemy").inspect(engine)
+        if "enterprises" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("enterprises")}
+        with engine.begin() as conn:
+            for col, sql_type in _ENTERPRISE_NEW_COLUMNS:
+                if col not in existing:
+                    conn.execute(__import__("sqlalchemy").text(
+                        f'ALTER TABLE enterprises ADD COLUMN {col} {sql_type}'
+                    ))
+    except Exception as e:  # pragma: no cover - 迁移失败不应阻断启动
+        print("⚠️ 企业库字段迁移跳过：", e)

@@ -19,6 +19,24 @@ class EnterpriseBase(BaseModel):
     pain_points: Optional[dict] = None
     needs: Optional[dict] = None
     analysis_text: Optional[str] = None
+    # ── 模板扩展字段 ──
+    founder: Optional[str] = None
+    registration: Optional[str] = None
+    leader: Optional[str] = None
+    intro: Optional[str] = None
+    funding_round: Optional[str] = None
+    pre_valuation: Optional[float] = None
+    demand_amount: Optional[float] = None
+    first_visit: Optional[str] = None
+    space_demand: Optional[str] = None
+    recommended_park: Optional[str] = None
+    decision_status: Optional[str] = None
+    progress_update: Optional[str] = None
+    project_source: Optional[str] = None
+    investment_lead: Optional[str] = None
+    investment_contact: Optional[str] = None
+    first_contact: Optional[str] = None
+    related_files: Optional[str] = None
 
 
 class EnterpriseCreate(EnterpriseBase):
@@ -39,6 +57,24 @@ class EnterpriseUpdate(BaseModel):
     pain_points: Optional[dict] = None
     needs: Optional[dict] = None
     analysis_text: Optional[str] = None
+    # ── 模板扩展字段 ──
+    founder: Optional[str] = None
+    registration: Optional[str] = None
+    leader: Optional[str] = None
+    intro: Optional[str] = None
+    funding_round: Optional[str] = None
+    pre_valuation: Optional[float] = None
+    demand_amount: Optional[float] = None
+    first_visit: Optional[str] = None
+    space_demand: Optional[str] = None
+    recommended_park: Optional[str] = None
+    decision_status: Optional[str] = None
+    progress_update: Optional[str] = None
+    project_source: Optional[str] = None
+    investment_lead: Optional[str] = None
+    investment_contact: Optional[str] = None
+    first_contact: Optional[str] = None
+    related_files: Optional[str] = None
 
 
 class EnterpriseResponse(EnterpriseBase):

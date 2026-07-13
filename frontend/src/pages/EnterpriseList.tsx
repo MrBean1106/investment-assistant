@@ -10,7 +10,13 @@ const STATUS_OPTIONS = ['全部', '线索', '洽谈中', '已签约', '已落地
 const STATUS_MAP: Record<string, string> = {
   '线索': 'tag-orange', '洽谈中': 'tag-blue', '已签约': 'tag-green', '已落地': 'tag-green',
 };
-const EMPTY_FORM = { name: '', industry: '', segment: '', region: '', scale: '', status: '线索', contact: '', demand: '', invest_rating: '', tags: '' };
+const EMPTY_FORM = {
+  name: '', industry: '', segment: '', region: '', scale: '', status: '线索', contact: '', demand: '', invest_rating: '', tags: '',
+  founder: '', registration: '', leader: '', intro: '', funding_round: '',
+  pre_valuation: '', demand_amount: '', first_visit: '', space_demand: '', recommended_park: '',
+  decision_status: '', progress_update: '', project_source: '', investment_lead: '', investment_contact: '',
+  first_contact: '', related_files: '',
+};
 
 export default function EnterpriseList() {
   const [searchParams] = useSearchParams();
@@ -47,17 +53,22 @@ export default function EnterpriseList() {
     if (!form.name || !form.industry) return;
     setSaving(true);
     try {
-      await enterpriseApi.create({
+      const payload: Record<string, unknown> = {
         ...form,
         tags: form.tags ? form.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean) : [],
-      });
+      };
+      for (const f of ['pre_valuation', 'demand_amount']) {
+        const v = payload[f];
+        payload[f] = v === '' || v == null ? null : Number(v);
+      }
+      await enterpriseApi.create(payload);
       qc.invalidateQueries({ queryKey: ['enterprises'] });
       setModalOpen(false); setForm({ ...EMPTY_FORM });
     } catch (e) { alert('创建失败: ' + (e as Error).message); }
     finally { setSaving(false); }
   };
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
     <div className="p-8">
@@ -108,12 +119,14 @@ export default function EnterpriseList() {
                 <th>地区</th>
                 <th>阶段</th>
                 <th>评级</th>
+                <th>融资轮次</th>
+                <th>决策状态</th>
                 <th style={{ width: 140 }}>操作</th>
               </tr>
             </thead>
             <tbody>
               {data.items.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-12" style={{ color: 'var(--color-muted)' }}>暂无匹配企业</td></tr>
+                <tr><td colSpan={9} className="text-center py-12" style={{ color: 'var(--color-muted)' }}>暂无匹配企业</td></tr>
               )}
               {data.items.map((e) => (
                 <tr key={e.id} className="cursor-pointer" onClick={() => navigate(`/enterprises/${e.id}`)}>
@@ -128,6 +141,8 @@ export default function EnterpriseList() {
                   <td style={{ color: 'var(--color-ink-secondary)' }}>{e.region || '—'}</td>
                   <td><span className={`tag ${STATUS_MAP[e.status] || 'tag-gray'}`}>{e.status}</span></td>
                   <td><span className="font-mono font-bold text-[13px]">{e.invest_rating || '—'}</span></td>
+                  <td>{e.funding_round || '—'}</td>
+                  <td>{e.decision_status || '—'}</td>
                   <td>
                     <div className="flex gap-2">
                       <Link to={`/enterprises/${e.id}`} className="text-[12px] font-semibold hover:underline" style={{ color: 'var(--color-accent)' }} onClick={(ev) => ev.stopPropagation()}>画像</Link>
@@ -153,7 +168,26 @@ export default function EnterpriseList() {
             <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>联系人</label><input className="input mt-0.5" value={form.contact} onChange={set('contact')} /></div>
             <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>评级</label><select className="input mt-0.5" value={form.invest_rating} onChange={set('invest_rating')}><option value="">—</option><option>A</option><option>A-</option><option>B+</option><option>B</option><option>C</option></select></div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>创始人/法人</label><input className="input mt-0.5" value={form.founder} onChange={set('founder')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>注册地</label><input className="input mt-0.5" value={form.registration} onChange={set('registration')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>负责人</label><input className="input mt-0.5" value={form.leader} onChange={set('leader')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>投资负责人</label><input className="input mt-0.5" value={form.investment_lead} onChange={set('investment_lead')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>招商对接人</label><input className="input mt-0.5" value={form.investment_contact} onChange={set('investment_contact')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>项目来源</label><input className="input mt-0.5" value={form.project_source} onChange={set('project_source')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>融资轮次</label><input className="input mt-0.5" value={form.funding_round} onChange={set('funding_round')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>投前估值（亿元）</label><input className="input mt-0.5" value={form.pre_valuation} onChange={set('pre_valuation')} inputMode="decimal" /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>需求金额（万元）</label><input className="input mt-0.5" value={form.demand_amount} onChange={set('demand_amount')} inputMode="decimal" /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>招商需求（㎡）</label><input className="input mt-0.5" value={form.space_demand} onChange={set('space_demand')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>决策状态</label><input className="input mt-0.5" value={form.decision_status} onChange={set('decision_status')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>推荐园区</label><input className="input mt-0.5" value={form.recommended_park} onChange={set('recommended_park')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>首次拜访</label><input className="input mt-0.5" value={form.first_visit} onChange={set('first_visit')} /></div>
+            <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>首次对接</label><input className="input mt-0.5" value={form.first_contact} onChange={set('first_contact')} /></div>
+          </div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>核心需求</label><input className="input mt-0.5" value={form.demand} onChange={set('demand')} /></div>
+          <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>简介（主营、行业地位、营收情况）</label><textarea className="input mt-0.5" rows={2} value={form.intro} onChange={set('intro')} /></div>
+          <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>进度更新（每两周更新）</label><textarea className="input mt-0.5" rows={2} value={form.progress_update} onChange={set('progress_update')} /></div>
+          <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>相关文件</label><input className="input mt-0.5" value={form.related_files} onChange={set('related_files')} /></div>
           <div><label className="text-[12px] font-semibold" style={{ color: 'var(--color-ink-secondary)' }}>标签（逗号分隔）</label><input className="input mt-0.5" value={form.tags} onChange={set('tags')} placeholder="上市企业, 专精特新, 链主" /></div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>取消</button>
