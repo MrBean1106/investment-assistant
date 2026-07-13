@@ -10,6 +10,7 @@ import ReportList from './pages/ReportList';
 import Workflow from './pages/Workflow';
 import AIChat from './pages/AIChat';
 import Leads from './pages/Leads';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           <Route path="workflow/:enterpriseId" element={<Workflow />} />
           <Route path="leads" element={<Leads />} />
           <Route path="ai" element={<AIChat />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

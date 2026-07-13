@@ -7,23 +7,33 @@ import os
 import json
 import logging
 
+from services.llm_config import get_llm_config
+
 logger = logging.getLogger(__name__)
 
-API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-
 _client = None
+_client_sig = None
 
 
 def _get_client():
-    global _client
-    if _client is None and API_KEY:
+    """Return an OpenAI-compatible client built from the current runtime config.
+
+    Rebuilds the client only when the key / base URL changes, so updates made
+    through the in-app Settings page take effect without a restart.
+    """
+    global _client, _client_sig
+    cfg = get_llm_config()
+    sig = (cfg["api_key"], cfg["base_url"])
+    if _client is None or _client_sig != sig:
+        if not cfg["api_key"]:
+            return None
         try:
             import openai
-            _client = openai.OpenAI(api_key=API_KEY, base_url=BASE_URL)
+            _client = openai.OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
+            _client_sig = sig
         except ImportError:
             logger.warning("openai package not installed; LLM calls will use fallback")
+            return None
     return _client
 
 
@@ -35,7 +45,7 @@ def _call_llm(system_prompt: str, user_prompt: str, response_format: str = "json
         return None
     try:
         resp = client.chat.completions.create(
-            model=MODEL,
+            model=get_llm_config()["model"],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

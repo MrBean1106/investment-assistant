@@ -5,6 +5,7 @@ from .industry_chain import IndustryChain, IndustryChainNode, IndustryChainEdge,
 from .report import Report
 from .document import Document
 from .lead import Lead
+from .setting import Setting
 
 __all__ = [
     "Enterprise",
@@ -17,4 +18,5 @@ __all__ = [
     "Report",
     "Document",
     "Lead",
+    "Setting",
 ]

@@ -4,7 +4,6 @@ and conversational chat with function calling.
 """
 
 import json
-import os
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -16,10 +15,8 @@ from services import generate_profile, match_resources, generate_report
 
 router = APIRouter()
 
-# ── DeepSeek / OpenAI compatible config ──
-API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+# ── DeepSeek / OpenAI compatible config (read dynamically at call time) ──
+from services.llm_config import get_llm_config
 
 
 def _ent_to_dict(ent: Enterprise) -> dict:
@@ -479,11 +476,12 @@ def _execute_tool(tool_name: str, tool_args: dict) -> str:
 # ── LLM client ──
 
 def _get_llm_client():
-    if not API_KEY:
+    cfg = get_llm_config()
+    if not cfg["api_key"]:
         return None
     try:
         import openai
-        return openai.OpenAI(api_key=API_KEY, base_url=BASE_URL)
+        return openai.OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"])
     except ImportError:
         return None
 
@@ -492,10 +490,10 @@ def _call_llm_with_tools(messages: list) -> dict:
     """Call the LLM with function calling support. Returns the API response."""
     client = _get_llm_client()
     if not client:
-        raise RuntimeError("未配置 DEEPSEEK_API_KEY，无法使用 AI 对话功能")
+        raise RuntimeError("未配置大模型 API Key，无法使用 AI 对话功能")
 
     return client.chat.completions.create(
-        model=MODEL,
+        model=get_llm_config()["model"],
         messages=messages,
         tools=TOOLS,
         temperature=0.7,
@@ -521,7 +519,7 @@ async def api_chat(body: dict):
         messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     # Check API key
-    if not API_KEY:
+    if not get_llm_config()["api_key"]:
         return StreamingResponse(
             _no_api_key_stream(),
             media_type="text/event-stream",
@@ -537,7 +535,7 @@ async def api_chat(body: dict):
 
 async def _no_api_key_stream():
     """Stream a message when no API key is configured."""
-    msg = "⚠️ 未配置 DEEPSEEK_API_KEY 环境变量，AI 对话功能不可用。请在 Railway 或本地设置该环境变量。"
+    msg = "⚠️ 尚未配置大模型 API Key，AI 对话功能暂不可用。请前往「设置 → 大模型 API 配置」填入你的 API Key，或设置 DEEPSEEK_API_KEY 环境变量。"
     yield f"data: {json.dumps({'type': 'text', 'content': msg})}\n\n"
     yield "data: [DONE]\n\n"
 

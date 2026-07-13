@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/properties', label: '物业资源', icon: '◫' },
   { to: '/reports', label: '报告中心', icon: '▣' },
   { to: '/ai', label: 'AI 助手', icon: '✦' },
+  { to: '/settings', label: '设置', icon: '⚙' },
 ];
 
 export default function Layout() {

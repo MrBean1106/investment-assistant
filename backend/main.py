@@ -18,6 +18,7 @@ from routers.reports import router as reports_router
 from routers.upload import router as upload_router
 from routers.stats import router as stats_router
 from routers.documents import router as documents_router
+from routers.settings import router as settings_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -47,6 +48,7 @@ app.include_router(upload_router, prefix="/api/files", tags=["files"])
 app.include_router(documents_router, prefix="/api/files", tags=["files"])
 app.include_router(stats_router, prefix="/api/stats", tags=["stats"])
 app.include_router(leads_router, prefix="/api/leads", tags=["leads"])
+app.include_router(settings_router, prefix="/api", tags=["settings"])
 
 
 @app.get("/api/health")
