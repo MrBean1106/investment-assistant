@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+backend/venv/
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite3
+
+# Runtime uploads (user OCR/doc files)
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
