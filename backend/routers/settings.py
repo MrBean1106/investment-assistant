@@ -6,7 +6,7 @@ import openai
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services.llm_config import get_llm_config, set_setting
+from services.llm_config import get_llm_config, set_setting, _sanitize_key, _sanitize_url
 
 router = APIRouter()
 
@@ -43,15 +43,19 @@ def get_llm_settings():
 def save_llm_settings(body: LlmConfigIn):
     # Persist to DB. Env vars take precedence at read time, so a saved value
     # only applies when the corresponding env var is not set (typical local dev).
+    notes: list[str] = []
     if body.clear_key:
         set_setting("llm_api_key", "")
-    elif body.api_key:  # 非空 -> 覆盖
-        set_setting("llm_api_key", body.api_key)
+    elif body.api_key:  # 非空 -> 覆盖（并清理复制粘贴带入的非法字符）
+        clean = _sanitize_key(body.api_key)
+        if clean != body.api_key:
+            notes.append("已自动清理 Key 中的非法字符（如全角空格、智能引号），若非预期请重新复制。")
+        set_setting("llm_api_key", clean)
 
     if body.base_url:
-        set_setting("llm_base_url", body.base_url)
+        set_setting("llm_base_url", _sanitize_url(body.base_url))
     if body.model:
-        set_setting("llm_model", body.model)
+        set_setting("llm_model", _sanitize_url(body.model))
 
     cfg = get_llm_config()
     return {
@@ -61,7 +65,7 @@ def save_llm_settings(body: LlmConfigIn):
         "masked_key": _mask(cfg["api_key"]),
         "note": "检测到 DEEPSEEK_API_KEY 环境变量，UI 配置暂不生效。如需改用应用内设置，请移除该环境变量后重启服务。"
         if cfg["source"] == "env"
-        else "",
+        else ("；".join(notes) if notes else ""),
     }
 
 
@@ -69,9 +73,9 @@ def save_llm_settings(body: LlmConfigIn):
 def test_llm_settings(body: LlmConfigIn):
     """Verify the API key works by sending a minimal completion request."""
     cfg = get_llm_config()
-    key = (body.api_key or "") or cfg["api_key"]
-    base_url = body.base_url or cfg["base_url"]
-    model = body.model or cfg["model"]
+    key = _sanitize_key(body.api_key) or cfg["api_key"]
+    base_url = _sanitize_url(body.base_url) or cfg["base_url"]
+    model = _sanitize_url(body.model) or cfg["model"]
     if not key:
         raise HTTPException(status_code=400, detail="未提供 API Key")
 
