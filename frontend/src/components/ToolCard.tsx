@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { TOOL_LABELS, summarizeToolResult } from '../utils/aiChat';
 
 export interface ToolEvent {
@@ -8,9 +9,22 @@ export interface ToolEvent {
   status: 'calling' | 'done' | 'error';
 }
 
+function parseCreateResult(result?: string): { id?: number; name?: string } | null {
+  if (!result) return null;
+  try {
+    const data = JSON.parse(result) as Record<string, unknown>;
+    if (data && data.success && data.enterprise) {
+      const e = data.enterprise as Record<string, unknown>;
+      return { id: e.id as number, name: e.name as string };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 export default function ToolCard({ tool }: { tool: ToolEvent }) {
   const [expanded, setExpanded] = useState(false);
   const label = TOOL_LABELS[tool.name] || tool.name;
+  const created = tool.name === 'create_enterprise' ? parseCreateResult(tool.result) : null;
   return (
     <div className="mt-2 rounded-lg border text-[12px] overflow-hidden"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
@@ -30,6 +44,15 @@ export default function ToolCard({ tool }: { tool: ToolEvent }) {
         <div className="px-3 py-2 border-t"
           style={{ borderColor: 'var(--color-border-light)', color: 'var(--color-ink-secondary)' }}>
           {tool.result ? summarizeToolResult(tool.name, tool.result) : '（无返回）'}
+          {created?.id != null && (
+            <Link
+              to={`/enterprises/${created.id}`}
+              className="ml-2 inline-block font-semibold hover:underline"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              查看企业 →
+            </Link>
+          )}
         </div>
       )}
       {expanded && tool.result && (

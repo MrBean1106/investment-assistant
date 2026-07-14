@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { API_BASE } from '../api/config';
 import { generateId, parseSSEStream } from '../utils/aiChat';
 import ToolCard from '../components/ToolCard';
@@ -106,6 +107,7 @@ export default function AIChat() {
 
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const qc = useQueryClient();
   const [uploads, setUploads] = useState<{ filename: string; content: string; file_type: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -253,6 +255,10 @@ export default function AIChat() {
             assistantTools.push({ name, result: content, status: 'done' });
           }
           updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
+          // AI 新增/修改企业后，刷新企业库缓存，确保「企业库」页面能看到最新数据
+          if (name === 'create_enterprise') {
+            qc.invalidateQueries({ queryKey: ['enterprises'] });
+          }
         },
         onError: (content) => {
           assistantContent += `\n\n❌ ${content}`;
