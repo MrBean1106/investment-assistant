@@ -511,7 +511,7 @@ def _call_llm_with_tools(messages: list) -> dict:
         model=get_llm_config()["model"],
         messages=messages,
         tools=TOOLS,
-        temperature=0.3,
+        temperature=0.2,
         max_tokens=4096,
     )
 
@@ -564,8 +564,23 @@ async def _chat_stream(messages: list):
       data: {"type": "tool_call", "name": "...", "args": {...}}
       data: {"type": "tool_result", "name": "...", "content": "..."}
       data: [DONE]
+
+    防幻觉闸：若模型声称“已添加企业”但实际并未真正调用 create_enterprise
+    （DeepSeek 可能仅凭系统提示模板口头编出“已录入《X》(ID:N)”而不执行工具），
+    则强制其再走一轮工具调用，直到企业真正落库；若仍调不动，则如实告知用户，
+    绝不让“声称成功”与“实际未写入”不一致。
     """
-    max_rounds = 5  # Prevent infinite loops
+    import re
+    _ADDED_RE = re.compile(
+        r"(已录入|已为你录入|为你录入|已添加|已为你添加|为你添加|"
+        r"已创建|已为你创建|为你创建|已新增|为你新增|"
+        r"加入(了)?企业库|录入(了)?企业|录入(了)?系统|加入(了)?系统|"
+        r"已加入|已成功添加|写入(了)?企业库)"
+    )
+
+    max_rounds = 7  # 留足空间给“防幻觉”强制重试
+    created_enterprise = False
+    last_text = ""
 
     for _ in range(max_rounds):
         try:
@@ -580,6 +595,7 @@ async def _chat_stream(messages: list):
         # If the model returns text content, stream it
         if msg.content:
             yield f"data: {json.dumps({'type': 'text', 'content': msg.content})}\n\n"
+            last_text = msg.content
 
         # If the model wants to call tools
         if msg.tool_calls:
@@ -613,6 +629,14 @@ async def _chat_stream(messages: list):
                 # Notify frontend of result
                 yield f"data: {json.dumps({'type': 'tool_result', 'name': tool_name, 'content': tool_result})}\n\n"
 
+                # Track successful enterprise creation
+                if tool_name == "create_enterprise":
+                    try:
+                        if json.loads(tool_result).get("success"):
+                            created_enterprise = True
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
                 # Add tool result to messages
                 messages.append({
                     "role": "tool",
@@ -623,12 +647,33 @@ async def _chat_stream(messages: list):
             # Continue loop to let LLM process tool results
             continue
 
-        # No tool calls and no content = finish
-        if not msg.content and not msg.tool_calls:
-            break
+        # ---- 没有工具调用：检查是否“口头声称已添加”却没真调工具 ----
+        if (not created_enterprise) and _ADDED_RE.search(last_text or ""):
+            # 防幻觉：强制模型下一轮真正调用 create_enterprise
+            messages.append({
+                "role": "user",
+                "content": (
+                    "【重要指令】你刚才的回复声称已经把企业添加进「企业库」，但实际上你并没有调用 "
+                    "create_enterprise 工具，企业数据并未真正写入数据库（系统里查不到该记录）。"
+                    "请立即调用 create_enterprise 工具，用从对话中提取的企业名称、行业、地区等信息"
+                    "完成真实添加，不要再次口头声称“已添加/已录入”。如果缺少企业名称等必要信息，"
+                    "请改为向我追问，而不要编造“已录入”的结果。"
+                ),
+            })
+            continue  # 再走一轮，逼模型真正调工具
 
-        # If we got here without tool calls, we're done
-        if not msg.tool_calls:
-            break
+        # 正常结束（无工具调用且未虚假声称）
+        break
+
+    # 循环结束后兜底：若仍虚假声称且未真正创建，如实告知，绝不说谎
+    if (not created_enterprise) and _ADDED_RE.search(last_text or ""):
+        honest = (
+            "\n\n⚠️ 抱歉，我刚才的回复有误——企业其实并未真正写入「企业库」"
+            "（系统未生成对应记录）。你可以：\n"
+            "1）前往「企业库」页面手动「新增」该企业；\n"
+            "2）在这里重新明确告诉我：“请把《企业名》加入企业库，行业是XX，地区是XX”，"
+            "我会真正调用工具把它加进去。"
+        )
+        yield f"data: {json.dumps({'type': 'text', 'content': honest})}\n\n"
 
     yield "data: [DONE]\n\n"
