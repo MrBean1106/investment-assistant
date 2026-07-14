@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from database import get_db
-from models import Enterprise
+from models import Enterprise, ChainNodeEnterprise, Report, Lead, Document
 from schemas.enterprise import (
     EnterpriseCreate,
     EnterpriseUpdate,
@@ -156,5 +156,11 @@ def delete_enterprise(enterprise_id: int, db: Session = Depends(get_db)):
     ent = db.query(Enterprise).filter(Enterprise.id == enterprise_id).first()
     if not ent:
         raise HTTPException(status_code=404, detail="Enterprise not found")
+    # 清理关联数据，避免外键/孤儿记录（模型未配置 cascade）
+    db.query(ChainNodeEnterprise).filter(ChainNodeEnterprise.enterprise_id == enterprise_id).delete()
+    db.query(Report).filter(Report.enterprise_id == enterprise_id).delete()
+    # Lead 可能有独立价值，解除关联而非删除
+    db.query(Lead).filter(Lead.enterprise_id == enterprise_id).update({Lead.enterprise_id: None})
+    db.query(Document).filter(Document.enterprise_id == enterprise_id).delete()
     db.delete(ent)
     db.commit()

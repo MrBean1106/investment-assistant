@@ -17,6 +17,9 @@ export const TOOL_LABELS: Record<string, string> = {
   match_properties_for_enterprise: '匹配物业',
   generate_report_for_enterprise: '生成研判报告',
   create_enterprise: '新增企业',
+  search_industry_chain_nodes: '搜索产业节点',
+  create_industry_chain_node: '新增产业节点',
+  add_enterprise_to_industry_chain: '关联产业图谱',
 };
 
 // ── ID generator ──

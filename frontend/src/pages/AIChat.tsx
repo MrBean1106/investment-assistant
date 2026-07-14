@@ -155,6 +155,16 @@ export default function AIChat() {
     });
   };
 
+  // 清空全部 AI 会话历史（本地存储），保留一个空白新对话
+  const clearAllConversations = () => {
+    if (streaming) return;
+    if (conversations.length === 0) return;
+    if (!window.confirm('确定清空所有 AI 对话历史吗？此操作不可恢复。')) return;
+    const c = newConversation();
+    setConversations([c]);
+    setCurrentId(c.id);
+  };
+
   // Patch the current conversation's messages (and metadata)
   const patchCurrent = (updater: (c: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === currentId ? updater(c) : c)));
@@ -255,9 +265,13 @@ export default function AIChat() {
             assistantTools.push({ name, result: content, status: 'done' });
           }
           updateLastAssistant(m => ({ ...m, tools: [...assistantTools] }));
-          // AI 新增/修改企业后，刷新企业库缓存，确保「企业库」页面能看到最新数据
+          // AI 新增/修改企业或产业图谱后，刷新相关缓存，确保页面能看到最新数据
           if (name === 'create_enterprise') {
             qc.invalidateQueries({ queryKey: ['enterprises'] });
+          }
+          if (name === 'add_enterprise_to_industry_chain' || name === 'create_industry_chain_node') {
+            qc.invalidateQueries({ queryKey: ['industry-chain'] });
+            qc.invalidateQueries({ queryKey: ['industry-chains'] });
           }
         },
         onError: (content) => {
@@ -292,7 +306,16 @@ export default function AIChat() {
             <div className="text-[13px] font-bold" style={{ color: 'var(--color-ink)' }}>对话历史</div>
             <div className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{conversations.length} 段对话</div>
           </div>
-          <button className="btn btn-primary text-[12px] !px-2.5 !py-1.5" onClick={createConversation} disabled={streaming} title="新建对话">＋ 新建</button>
+          <div className="flex gap-1.5">
+            <button className="btn btn-primary text-[12px] !px-2.5 !py-1.5" onClick={createConversation} disabled={streaming} title="新建对话">＋ 新建</button>
+            <button
+              className="text-[12px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors"
+              style={{ color: 'var(--color-danger)', borderColor: 'var(--color-border-light)' }}
+              onClick={clearAllConversations}
+              disabled={streaming || conversations.length === 0}
+              title="清空所有对话历史"
+            >清空</button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
           {sortedConversations.map((c) => {

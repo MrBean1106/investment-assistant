@@ -14,6 +14,7 @@ router = APIRouter()
 
 ALLOWED_TEXT = {'.txt', '.md', '.csv', '.json', '.py', '.js', '.ts', '.html', '.css', '.log', '.xml', '.yaml', '.yml'}
 ALLOWED_IMAGE = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
+ALLOWED_DOC = {'.docx', '.doc'}
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -97,6 +98,29 @@ async def upload_file(
                         content = "[PDF 未提取到任何文本（OCR 也未能识别，可能是空白或加密文件）]"
             except Exception as e:
                 content = f"[PDF 解析失败: {e}]"
+            (UPLOAD_DIR / stored_name).write_bytes(raw)
+
+        elif ext in ALLOWED_DOC:
+            file_type = "doc"
+            try:
+                import docx
+                from io import BytesIO
+                doc = docx.Document(BytesIO(raw))
+                paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+                # Also try tables
+                tables = []
+                for table in doc.tables:
+                    for row in table.rows:
+                        cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                        if cells:
+                            tables.append("\t".join(cells))
+                content = "\n".join(paragraphs + tables)
+                if not content:
+                    content = f"[Word 文档未提取到任何文本: {Path(filename).name}]"
+            except ImportError:
+                content = f"[Word 解析失败: 缺少 python-docx 库，请联系管理员安装]"
+            except Exception as e:
+                content = f"[Word 解析失败: {e}]"
             (UPLOAD_DIR / stored_name).write_bytes(raw)
 
         else:

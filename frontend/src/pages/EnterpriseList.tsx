@@ -68,6 +68,14 @@ export default function EnterpriseList() {
     finally { setSaving(false); }
   };
 
+  const handleDelete = async (id: number, name: string) => {
+    if (!window.confirm(`确定删除企业「${name}」吗？\n该操作会同时移除其产业图谱关联与研判报告，且不可恢复。`)) return;
+    try {
+      await enterpriseApi.delete(id);
+      qc.invalidateQueries({ queryKey: ['enterprises'] });
+    } catch (e) { alert('删除失败: ' + (e as Error).message); }
+  };
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
@@ -144,9 +152,14 @@ export default function EnterpriseList() {
                   <td>{e.funding_round || '—'}</td>
                   <td>{e.decision_status || '—'}</td>
                   <td>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Link to={`/enterprises/${e.id}`} className="text-[12px] font-semibold hover:underline" style={{ color: 'var(--color-accent)' }} onClick={(ev) => ev.stopPropagation()}>画像</Link>
                       <Link to={`/workflow/${e.id}`} className="text-[12px] font-semibold hover:underline" style={{ color: 'var(--color-accent)' }} onClick={(ev) => ev.stopPropagation()}>工作流 →</Link>
+                      <button
+                        className="text-[12px] font-semibold hover:underline"
+                        style={{ color: 'var(--color-danger)' }}
+                        onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id, e.name); }}
+                      >删除</button>
                     </div>
                   </td>
                 </tr>

@@ -19,6 +19,28 @@ OCR_ENGINE_NAME = "RapidOCR"
 _WORKER_TIMEOUT = 180  # seconds, generous for multi-page scanned PDFs
 
 
+def _ocr_in_process(path: str) -> Tuple[str, bool, str]:
+    """Fallback in-process OCR when subprocess is unavailable or fails."""
+    try:
+        # Set env vars before importing native libs (same as ocr_worker)
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("MKL_NUM_THREADS", "1")
+        os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+        os.environ.setdefault("ONNXRUNTIME_DISABLE_THREAD_SPINNING", "1")
+
+        from services.ocr_worker import ocr_image_file, ocr_pdf_file
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".pdf":
+            text, used = ocr_pdf_file(path)
+        else:
+            text = ocr_image_file(path)
+            used = True
+        return text, used, ""
+    except Exception as e:
+        return "", False, f"OCR 失败（in-process 回退）: {e}"
+
+
 def _run_worker(path: str) -> Tuple[str, bool, str]:
     """Run the OCR worker on a file path. Returns (text, used_ocr, error)."""
     try:
@@ -29,21 +51,24 @@ def _run_worker(path: str) -> Tuple[str, bool, str]:
             timeout=_WORKER_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
-        return "", False, f"OCR 超时（>{_WORKER_TIMEOUT}s）"
-    except Exception as e:  # pragma: no cover - defensive
-        return "", False, f"OCR 子进程启动失败: {e}"
+        # Timeout: try in-process as fallback
+        return _ocr_in_process(path)
+    except Exception as e:
+        # Subprocess spawn failed (e.g., sandboxed environment). Fall back to in-process.
+        return _ocr_in_process(path)
 
     if proc.returncode != 0 and not proc.stdout.strip():
         err = proc.stderr.strip() or f"worker exit {proc.returncode}"
-        return "", False, f"OCR 失败: {err[:300]}"
+        # Worker failed: try in-process as fallback before giving up
+        return _ocr_in_process(path)
 
     try:
         out = json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return "", False, f"OCR 输出解析失败: {proc.stdout[:200]}"
+        return _ocr_in_process(path)
 
     if out.get("error"):
-        return "", False, str(out["error"])
+        return _ocr_in_process(path)
     return out.get("text", ""), bool(out.get("used_ocr", False)), ""
 
 
